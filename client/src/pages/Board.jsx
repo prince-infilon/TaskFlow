@@ -231,6 +231,7 @@ const Board = () => {
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'member' });
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [memberToRemove, setMemberToRemove] = useState(null);
 
   const fetchBoardData = async () => {
     try {
@@ -809,10 +810,10 @@ const Board = () => {
   };
 
   const handleRemoveMember = async (userId) => {
-    if (!window.confirm('Are you sure you want to remove this member?')) return;
     try {
       await apiClient.delete(`/boards/${boardId}/members/${userId}`);
       setBoardMembers(prev => prev.filter(m => m.id !== userId));
+      setMemberToRemove(null);
     } catch (err) {
       console.error('Failed to remove member:', err);
     }
@@ -1473,37 +1474,54 @@ const Board = () => {
         {membersView === 'list' ? (
           <div className="space-y-4">
             {boardMembers.map(member => (
-              <div key={member.id} className="flex items-center justify-between p-3 bg-surface border border-border rounded-md hover:bg-surface-muted transition-colors">
-                <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
-                  <div className="relative shrink-0">
-                    <Avatar name={member.name} size="md" />
-                    {member.isOnline && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success-500 border-2 border-surface rounded-full"></span>
-                    )}
+              <div key={member.id} className="flex flex-col p-3 bg-surface border border-border rounded-md hover:bg-surface-muted transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
+                    <div className="relative shrink-0">
+                      <Avatar name={member.name} size="md" />
+                      {member.isOnline && (
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success-500 border-2 border-surface rounded-full"></span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-body-medium text-primary font-medium truncate">{member.name}</div>
+                      <div className="text-small text-tertiary truncate">{member.email}</div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-body-medium text-primary font-medium truncate">{member.name}</div>
-                    <div className="text-small text-tertiary truncate">{member.email}</div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="w-[110px]">
+                      <Select 
+                        value={member.role}
+                        onChange={(newRole) => handleUpdateMemberRole(member.id, newRole)}
+                        options={[
+                          { label: 'Manager', value: 'manager' },
+                          { label: 'Member', value: 'member' }
+                        ]}
+                      />
+                    </div>
+                    <button 
+                      onClick={() => setMemberToRemove(member.id)}
+                      className="text-danger-500 hover:text-danger-600 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded hover:bg-danger-50 transition-colors shrink-0"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="w-[110px]">
-                    <Select 
-                      value={member.role}
-                      onChange={(newRole) => handleUpdateMemberRole(member.id, newRole)}
-                      options={[
-                        { label: 'Manager', value: 'manager' },
-                        { label: 'Member', value: 'member' }
-                      ]}
-                    />
+                
+                {/* Inline Confirmation Card */}
+                {memberToRemove === member.id && (
+                  <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
+                    <span className="text-small text-danger-700 font-medium">Are you sure you want to remove this member?</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button variant="ghost" size="sm" onClick={() => setMemberToRemove(null)} className="h-7 text-xs px-2 text-danger-600 hover:bg-danger-100 hover:text-danger-700">
+                        Cancel
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => handleRemoveMember(member.id)} className="h-7 text-xs px-3">
+                        Remove
+                      </Button>
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => handleRemoveMember(member.id)}
-                    className="text-danger-500 hover:text-danger-600 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded hover:bg-danger-50 transition-colors shrink-0"
-                  >
-                    Remove
-                  </button>
-                </div>
+                )}
               </div>
             ))}
           </div>
