@@ -229,13 +229,16 @@ const Board = () => {
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
   const [membersView, setMembersView] = useState('list'); // 'list' | 'invite'
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'member' });
-  const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
-  const [memberToRemove, setMemberToRemove] = useState(null);
-  const [taskToDelete, setTaskToDelete] = useState(false);
-  const [commentToDelete, setCommentToDelete] = useState(null);
-  const [attachmentToDelete, setAttachmentToDelete] = useState(null);
-  const [boardToDelete, setBoardToDelete] = useState(false);
+  
+  // Generic Confirmation Modal State
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    confirmText: 'Delete'
+  });
 
   const fetchBoardData = async () => {
     try {
@@ -817,7 +820,6 @@ const Board = () => {
     try {
       await apiClient.delete(`/boards/${boardId}/members/${userId}`);
       setBoardMembers(prev => prev.filter(m => m.id !== userId));
-      setMemberToRemove(null);
     } catch (err) {
       console.error('Failed to remove member:', err);
     }
@@ -1183,22 +1185,24 @@ const Board = () => {
                           <IconButton variant="ghost" className="w-7 h-7 text-secondary" onClick={() => handleDownloadAttachment(att)}>
                             <Download className="w-4 h-4" />
                           </IconButton>
-                          <IconButton variant="ghost" className="w-7 h-7 text-danger-500" onClick={() => setAttachmentToDelete(att._id)}>
+                          <IconButton 
+                            variant="ghost" 
+                            className="w-7 h-7 text-danger-500" 
+                            onClick={() => setConfirmDialog({
+                              isOpen: true,
+                              title: 'Delete Attachment',
+                              message: 'Are you sure you want to delete this attachment?',
+                              confirmText: 'Delete',
+                              onConfirm: () => {
+                                handleDeleteAttachment(att._id);
+                                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                              }
+                            })}
+                          >
                             <Trash2 className="w-4 h-4" />
                           </IconButton>
                         </div>
                       </div>
-                      
-                      {/* Inline Confirmation */}
-                      {attachmentToDelete === att._id && (
-                        <div className="mt-2 p-2 bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
-                          <span className="text-[11px] text-danger-700 font-medium">Delete this attachment?</span>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => setAttachmentToDelete(null)} className="h-6 text-[10px] px-2 text-danger-600 hover:bg-danger-100">Cancel</Button>
-                            <Button variant="danger" size="sm" onClick={() => handleDeleteAttachment(att._id)} className="h-6 text-[10px] px-2">Delete</Button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -1243,7 +1247,16 @@ const Board = () => {
                             <span className="text-[11px] text-tertiary">{new Date(comment.createdAt).toLocaleString()}</span>
                           </div>
                           <button 
-                            onClick={() => setCommentToDelete(comment._id)}
+                            onClick={() => setConfirmDialog({
+                              isOpen: true,
+                              title: 'Delete Comment',
+                              message: 'Are you sure you want to delete this comment?',
+                              confirmText: 'Delete',
+                              onConfirm: () => {
+                                handleDeleteComment(comment._id);
+                                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                              }
+                            })}
                             className="text-tertiary hover:text-danger-500 transition-colors"
                             aria-label="Delete comment"
                           >
@@ -1251,17 +1264,6 @@ const Board = () => {
                           </button>
                         </div>
                         <p className="text-small text-secondary whitespace-pre-wrap">{comment.content}</p>
-                        
-                        {/* Inline Confirmation */}
-                        {commentToDelete === comment._id && (
-                          <div className="mt-2 p-2 bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
-                            <span className="text-[11px] text-danger-700 font-medium">Delete this comment?</span>
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => setCommentToDelete(null)} className="h-6 text-[10px] px-2 text-danger-600 hover:bg-danger-100">Cancel</Button>
-                              <Button variant="danger" size="sm" onClick={() => handleDeleteComment(comment._id)} className="h-6 text-[10px] px-2">Delete</Button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))
@@ -1271,20 +1273,23 @@ const Board = () => {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-border flex justify-between relative">
-              {taskToDelete ? (
-                <div className="absolute inset-y-0 left-0 right-[150px] bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between px-3 animate-in fade-in slide-in-from-top-2 duration-200 z-10 my-6">
-                  <span className="text-small text-danger-700 font-medium">Are you sure you want to delete this task?</span>
-                  <div className="flex gap-2 shrink-0">
-                    <Button variant="ghost" size="sm" onClick={() => setTaskToDelete(false)} className="h-7 text-xs px-2 text-danger-600 hover:bg-danger-100 hover:text-danger-700">Cancel</Button>
-                    <Button variant="danger" size="sm" onClick={handleDeleteTask} className="h-7 text-xs px-3">Delete</Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="ghost" className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" onClick={() => setTaskToDelete(true)}>
-                  Delete Task
-                </Button>
-              )}
+            <div className="pt-6 border-t border-border flex justify-between">
+              <Button 
+                variant="ghost" 
+                className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" 
+                onClick={() => setConfirmDialog({
+                  isOpen: true,
+                  title: 'Delete Task',
+                  message: 'Are you sure you want to delete this task?',
+                  confirmText: 'Delete Task',
+                  onConfirm: () => {
+                    handleDeleteTask();
+                    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                  }
+                })}
+              >
+                Delete Task
+              </Button>
               <Button variant="secondary" onClick={() => {
                 setEditTaskForm({
                   title: selectedTask.title,
@@ -1537,28 +1542,22 @@ const Board = () => {
                       />
                     </div>
                     <button 
-                      onClick={() => setMemberToRemove(member.id)}
+                      onClick={() => setConfirmDialog({
+                        isOpen: true,
+                        title: 'Remove Member',
+                        message: 'Are you sure you want to remove this member from the board?',
+                        confirmText: 'Remove',
+                        onConfirm: () => {
+                          handleRemoveMember(member.id);
+                          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                        }
+                      })}
                       className="text-danger-500 hover:text-danger-600 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded hover:bg-danger-50 transition-colors shrink-0"
                     >
                       Remove
                     </button>
                   </div>
                 </div>
-                
-                {/* Inline Confirmation Card */}
-                {memberToRemove === member.id && (
-                  <div className="mt-3 p-3 bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
-                    <span className="text-small text-danger-700 font-medium">Are you sure you want to remove this member?</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="ghost" size="sm" onClick={() => setMemberToRemove(null)} className="h-7 text-xs px-2 text-danger-600 hover:bg-danger-100 hover:text-danger-700">
-                        Cancel
-                      </Button>
-                      <Button variant="danger" size="sm" onClick={() => handleRemoveMember(member.id)} className="h-7 text-xs px-3">
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -1595,20 +1594,23 @@ const Board = () => {
         title="Board Settings"
         size="md"
         footer={
-          <div className="flex justify-between w-full relative">
-            {boardToDelete ? (
-              <div className="absolute inset-y-0 left-0 right-[250px] bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between px-3 animate-in fade-in slide-in-from-left-2 duration-200 z-10">
-                <span className="text-small text-danger-700 font-medium truncate pr-2">Delete board permanently?</span>
-                <div className="flex gap-2 shrink-0">
-                  <Button variant="ghost" size="sm" onClick={() => setBoardToDelete(false)} className="h-7 text-xs px-2 text-danger-600 hover:bg-danger-100">Cancel</Button>
-                  <Button variant="danger" size="sm" onClick={handleDeleteBoard} className="h-7 text-xs px-3">Delete</Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="ghost" className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" onClick={() => setBoardToDelete(true)}>
-                Delete Board
-              </Button>
-            )}
+          <div className="flex justify-between w-full">
+            <Button 
+              variant="ghost" 
+              className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" 
+              onClick={() => setConfirmDialog({
+                isOpen: true,
+                title: 'Delete Board',
+                message: 'Are you sure you want to delete this board? This cannot be undone.',
+                confirmText: 'Delete Board',
+                onConfirm: () => {
+                  handleDeleteBoard();
+                  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                }
+              })}
+            >
+              Delete Board
+            </Button>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} disabled={isSavingBoard}>
                 Cancel
@@ -1638,6 +1640,28 @@ const Board = () => {
               disabled={isSavingBoard}
             />
           </div>
+        </div>
+      </Modal>
+
+      {/* Global Confirmation Modal */}
+      <Modal
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        title={confirmDialog.title}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmDialog.onConfirm}>
+              {confirmDialog.confirmText}
+            </Button>
+          </>
+        }
+      >
+        <div className="text-body text-secondary">
+          {confirmDialog.message}
         </div>
       </Modal>
     </div>

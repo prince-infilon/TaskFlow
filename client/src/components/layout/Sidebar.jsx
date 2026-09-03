@@ -110,17 +110,28 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
         {/* Bottom Actions */}
         <div className="p-4 border-t border-border">
           <div className="hidden lg:flex items-center justify-start">
-            <Tooltip content={isCollapsed ? "Expand sidebar" : "Collapse sidebar"} position="right">
+            {isCollapsed && !isMobileOpen ? (
+              <Tooltip content="Expand sidebar" position="right">
+                <IconButton 
+                  variant="ghost" 
+                  onClick={toggleCollapse} 
+                  aria-label="Toggle sidebar"
+                  className="w-full justify-center px-2"
+                >
+                  <PanelLeftOpen className="w-5 h-5" />
+                </IconButton>
+              </Tooltip>
+            ) : (
               <IconButton 
                 variant="ghost" 
                 onClick={toggleCollapse} 
                 aria-label="Toggle sidebar"
-                className={cn("w-full justify-start px-2", isCollapsed ? "justify-center" : "")}
+                className="w-full justify-start px-2"
               >
-                {isCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
-                {!isCollapsed && <span className="ml-3 text-body-medium text-secondary">Collapse</span>}
+                <PanelLeftClose className="w-5 h-5" />
+                <span className="ml-3 text-body-medium text-secondary">Collapse</span>
               </IconButton>
-            </Tooltip>
+            )}
           </div>
         </div>
       </aside>

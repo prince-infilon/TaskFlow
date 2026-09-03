@@ -90,3 +90,55 @@ exports.getMyTasks = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.globalSearch = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) {
+      return res.status(200).json({ success: true, data: { boards: [], tasks: [] } });
+    }
+
+    const regex = new RegExp(q, 'i');
+
+    let boardQuery = { name: regex };
+    if (req.user.globalRole !== 'admin') {
+      boardQuery.$or = [
+        { 'members.user': req.user._id },
+        { owner: req.user._id }
+      ];
+    }
+    const boards = await Board.find(boardQuery, 'name description').limit(5);
+
+    // To find tasks, we need all boards the user can access
+    let accessibleBoardIds = boards.map(b => b._id);
+    if (req.user.globalRole !== 'admin') {
+      const allAccessibleBoards = await Board.find({
+        $or: [
+          { 'members.user': req.user._id },
+          { owner: req.user._id }
+        ]
+      }, '_id');
+      accessibleBoardIds = allAccessibleBoards.map(b => b._id);
+    } else {
+      const allAccessibleBoards = await Board.find({}, '_id');
+      accessibleBoardIds = allAccessibleBoards.map(b => b._id);
+    }
+
+    const tasks = await Task.find({
+      board: { $in: accessibleBoardIds },
+      $or: [{ title: regex }, { description: regex }]
+    })
+      .populate('board', 'name')
+      .limit(10);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        boards,
+        tasks
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};

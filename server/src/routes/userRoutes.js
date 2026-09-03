@@ -11,5 +11,6 @@ router.get('/me', (req, res) => {
 
 router.get('/me/dashboard', userController.getDashboardData);
 router.get('/me/tasks', userController.getMyTasks);
+router.get('/me/search', userController.globalSearch);
 
 module.exports = router;

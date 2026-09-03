@@ -43,11 +43,11 @@ const Tooltip = ({ children, content, position = 'top', className }) => {
       
       {isVisible && (
         <div className={cn(
-          "absolute z-50 px-2 py-1 bg-primary text-on-accent text-small rounded-sm shadow-sm whitespace-nowrap animate-in fade-in duration-150",
+          "absolute z-50 px-2 py-1 bg-primary text-small rounded-sm shadow-sm whitespace-nowrap animate-in fade-in duration-150 flex items-center justify-center",
           positionClasses[position],
           className
-        )} role="tooltip">
-          {content}
+        )} role="tooltip" style={{ color: '#ffffff' }}>
+          <span>{content}</span>
           {/* Arrow */}
           <div className={cn(
             "absolute w-2 h-2 bg-primary transform rotate-45",
