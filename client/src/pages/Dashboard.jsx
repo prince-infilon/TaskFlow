@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Calendar } from 'lucide-react';
@@ -26,6 +26,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState({ dueToday: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const firstName = user?.name?.split(' ')[0] || "User";
   
   const today = new Date().toLocaleDateString('en-US', {
@@ -103,7 +104,7 @@ const Dashboard = () => {
             <div 
               key={task._id}
               className={`flex items-center justify-between p-3 sm:p-4 hover:bg-surface-muted transition-colors cursor-pointer ${index !== tasks.length - 1 ? 'border-b border-border' : ''}`}
-              onClick={() => window.location.href = `/app/boards/${task.board?._id}`}
+              onClick={() => navigate(`/app/boards/${task.board?._id}`)}
             >
               {/* Left side: Title and Board */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 flex-1 min-w-0 pr-4">
@@ -148,7 +149,7 @@ const Dashboard = () => {
               <div 
                 key={activity._id}
                 className={`flex items-center gap-3 p-3 sm:p-4 hover:bg-surface-muted transition-colors cursor-pointer ${index !== activities.length - 1 ? 'border-b border-border' : ''}`}
-                onClick={() => window.location.href = `/app/boards/${activity.board?._id}`}
+                onClick={() => navigate(`/app/boards/${activity.board?._id}`)}
               >
                 <div className="shrink-0">
                   <Avatar name={activity.user?.name || 'Unknown'} size="md" />
@@ -193,8 +194,8 @@ const Dashboard = () => {
             <Card 
               key={board._id} 
               hoverable 
-              className="flex-shrink-0 w-[260px] lg:w-auto flex flex-col"
-              onClick={() => window.location.href = `/app/boards/${board._id}`}
+              className="flex-shrink-0 w-[260px] lg:w-auto flex flex-col cursor-pointer"
+              onClick={() => navigate(`/app/boards/${board._id}`)}
             >
               <CardHeader className="pb-2">
                 <CardTitle className="truncate">{board.name}</CardTitle>
