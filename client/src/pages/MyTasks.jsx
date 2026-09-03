@@ -79,6 +79,7 @@ const MyTasks = () => {
                       <span className="text-[10px] font-medium text-tertiary uppercase tracking-wider bg-surface-muted px-2 py-0.5 rounded truncate max-w-[120px]">
                         {task.board?.name || 'Unknown Board'}
                       </span>
+                      
                     </div>
 
                     <h4 className="text-body-medium text-primary line-clamp-2 leading-snug">
