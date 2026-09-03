@@ -232,6 +232,10 @@ const Board = () => {
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [memberToRemove, setMemberToRemove] = useState(null);
+  const [taskToDelete, setTaskToDelete] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState(null);
+  const [attachmentToDelete, setAttachmentToDelete] = useState(null);
+  const [boardToDelete, setBoardToDelete] = useState(false);
 
   const fetchBoardData = async () => {
     try {
@@ -677,11 +681,11 @@ const Board = () => {
   };
 
   const handleDeleteTask = async () => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
     try {
       await apiClient.delete(`/boards/${boardId}/tasks/${selectedTask.id}`);
       await fetchTasks(false);
       setIsDrawerOpen(false);
+      setTaskToDelete(false);
     } catch (err) {
       alert(err.message || 'Failed to delete task');
     }
@@ -705,11 +709,11 @@ const Board = () => {
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('Delete this comment?')) return;
     try {
       await apiClient.delete(`/boards/${boardId}/tasks/${selectedTask.id}/comments/${commentId}`);
       setTaskComments(prev => prev.filter(c => c._id !== commentId));
       await fetchTasks(false);
+      setCommentToDelete(null);
     } catch (err) {
       alert(err.message || 'Failed to delete comment');
     }
@@ -743,11 +747,11 @@ const Board = () => {
   };
 
   const handleDeleteAttachment = async (attachmentId) => {
-    if (!window.confirm('Delete this attachment?')) return;
     try {
       await apiClient.delete(`/boards/${boardId}/tasks/${selectedTask.id}/attachments/${attachmentId}`);
       setTaskAttachments(prev => prev.filter(a => a._id !== attachmentId));
       await fetchTasks(false);
+      setAttachmentToDelete(null);
     } catch (err) {
       alert(err.message || 'Failed to delete attachment');
     }
@@ -834,7 +838,6 @@ const Board = () => {
   };
 
   const handleDeleteBoard = async () => {
-    if (!window.confirm('Are you sure you want to delete this board? This cannot be undone.')) return;
     try {
       await apiClient.delete(`/boards/${boardId}`);
       navigate('/app/boards');
@@ -1163,26 +1166,39 @@ const Board = () => {
               {taskAttachments.length > 0 ? (
                 <div className="space-y-2">
                   {taskAttachments.map(att => (
-                    <div key={att._id} className="flex items-center justify-between bg-surface border border-border p-2 rounded-md">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <Paperclip className="w-4 h-4 text-tertiary shrink-0" />
-                        <div className="truncate">
-                          <p className="text-small font-medium text-primary truncate" title={att.originalFilename}>
-                            {att.originalFilename}
-                          </p>
-                          <p className="text-[10px] text-tertiary">
-                            {(att.fileSize / 1024).toFixed(1)} KB • {att.uploadedBy?.name || 'Unknown'}
-                          </p>
+                    <div key={att._id} className="flex flex-col bg-surface border border-border p-2 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Paperclip className="w-4 h-4 text-tertiary shrink-0" />
+                          <div className="truncate">
+                            <p className="text-small font-medium text-primary truncate" title={att.originalFilename}>
+                              {att.originalFilename}
+                            </p>
+                            <p className="text-[10px] text-tertiary">
+                              {(att.fileSize / 1024).toFixed(1)} KB • {att.uploadedBy?.name || 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <IconButton variant="ghost" className="w-7 h-7 text-secondary" onClick={() => handleDownloadAttachment(att)}>
+                            <Download className="w-4 h-4" />
+                          </IconButton>
+                          <IconButton variant="ghost" className="w-7 h-7 text-danger-500" onClick={() => setAttachmentToDelete(att._id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </IconButton>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0 ml-2">
-                        <IconButton variant="ghost" className="w-7 h-7 text-secondary" onClick={() => handleDownloadAttachment(att)}>
-                          <Download className="w-4 h-4" />
-                        </IconButton>
-                        <IconButton variant="ghost" className="w-7 h-7 text-danger-500" onClick={() => handleDeleteAttachment(att._id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </IconButton>
-                      </div>
+                      
+                      {/* Inline Confirmation */}
+                      {attachmentToDelete === att._id && (
+                        <div className="mt-2 p-2 bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
+                          <span className="text-[11px] text-danger-700 font-medium">Delete this attachment?</span>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => setAttachmentToDelete(null)} className="h-6 text-[10px] px-2 text-danger-600 hover:bg-danger-100">Cancel</Button>
+                            <Button variant="danger" size="sm" onClick={() => handleDeleteAttachment(att._id)} className="h-6 text-[10px] px-2">Delete</Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1220,14 +1236,14 @@ const Board = () => {
                   taskComments.map(comment => (
                     <div key={comment._id} className="flex gap-3">
                       <Avatar name={comment.author?.name || 'Unknown'} size="sm" className="shrink-0" />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <span className="text-small font-medium text-primary">{comment.author?.name || 'Unknown'}</span>
                             <span className="text-[11px] text-tertiary">{new Date(comment.createdAt).toLocaleString()}</span>
                           </div>
                           <button 
-                            onClick={() => handleDeleteComment(comment._id)}
+                            onClick={() => setCommentToDelete(comment._id)}
                             className="text-tertiary hover:text-danger-500 transition-colors"
                             aria-label="Delete comment"
                           >
@@ -1235,6 +1251,17 @@ const Board = () => {
                           </button>
                         </div>
                         <p className="text-small text-secondary whitespace-pre-wrap">{comment.content}</p>
+                        
+                        {/* Inline Confirmation */}
+                        {commentToDelete === comment._id && (
+                          <div className="mt-2 p-2 bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
+                            <span className="text-[11px] text-danger-700 font-medium">Delete this comment?</span>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => setCommentToDelete(null)} className="h-6 text-[10px] px-2 text-danger-600 hover:bg-danger-100">Cancel</Button>
+                              <Button variant="danger" size="sm" onClick={() => handleDeleteComment(comment._id)} className="h-6 text-[10px] px-2">Delete</Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
@@ -1244,10 +1271,20 @@ const Board = () => {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-border flex justify-between">
-              <Button variant="ghost" className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" onClick={handleDeleteTask}>
-                Delete Task
-              </Button>
+            <div className="pt-6 border-t border-border flex justify-between relative">
+              {taskToDelete ? (
+                <div className="absolute inset-y-0 left-0 right-[150px] bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between px-3 animate-in fade-in slide-in-from-top-2 duration-200 z-10 my-6">
+                  <span className="text-small text-danger-700 font-medium">Are you sure you want to delete this task?</span>
+                  <div className="flex gap-2 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => setTaskToDelete(false)} className="h-7 text-xs px-2 text-danger-600 hover:bg-danger-100 hover:text-danger-700">Cancel</Button>
+                    <Button variant="danger" size="sm" onClick={handleDeleteTask} className="h-7 text-xs px-3">Delete</Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="ghost" className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" onClick={() => setTaskToDelete(true)}>
+                  Delete Task
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => {
                 setEditTaskForm({
                   title: selectedTask.title,
@@ -1558,10 +1595,20 @@ const Board = () => {
         title="Board Settings"
         size="md"
         footer={
-          <div className="flex justify-between w-full">
-            <Button variant="ghost" className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" onClick={handleDeleteBoard}>
-              Delete Board
-            </Button>
+          <div className="flex justify-between w-full relative">
+            {boardToDelete ? (
+              <div className="absolute inset-y-0 left-0 right-[250px] bg-danger-50 border border-danger-200 rounded-md flex items-center justify-between px-3 animate-in fade-in slide-in-from-left-2 duration-200 z-10">
+                <span className="text-small text-danger-700 font-medium truncate pr-2">Delete board permanently?</span>
+                <div className="flex gap-2 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => setBoardToDelete(false)} className="h-7 text-xs px-2 text-danger-600 hover:bg-danger-100">Cancel</Button>
+                  <Button variant="danger" size="sm" onClick={handleDeleteBoard} className="h-7 text-xs px-3">Delete</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="ghost" className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" onClick={() => setBoardToDelete(true)}>
+                Delete Board
+              </Button>
+            )}
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setIsEditModalOpen(false)} disabled={isSavingBoard}>
                 Cancel
