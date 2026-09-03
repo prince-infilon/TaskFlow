@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg-canvas: #F8FAFC;
+    --color-bg-surface: #FFFFFF;
+    --color-bg-surface-muted: #F1F5F9;
+    --color-bg-inset: #E2E8F0;
+    
+    --color-border: #E2E8F0;
+    --color-border-strong: #CBD5E1;
+    
+    --color-text-primary: #0F172A;
+    --color-text-secondary: #475569;
+    --color-text-tertiary: #94A3B8;
+    --color-text-on-accent: #FFFFFF;
+
+    --color-accent-50: #EEF2FF;
+    --color-accent-100: #E0E7FF;
+    --color-accent-500: #6366F1;
+    --color-accent-600: #4F46E5;
+    --color-accent-700: #4338CA;
+
+    --color-success-50: #F0FDF4;
+    --color-success-500: #16A34A;
+    
+    --color-warning-50: #FFFBEB;
+    --color-warning-500: #D97706;
+    
+    --color-danger-50: #FEF2F2;
+    --color-danger-500: #DC2626;
+    
+    --color-info-50: #F0F9FF;
+    --color-info-500: #0284C7;
+  }
+
+  body {
+    @apply bg-canvas text-primary font-sans antialiased;
+  }
+
+  /* Utilities */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
