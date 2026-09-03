@@ -368,19 +368,105 @@ const Board = () => {
       const triggerBoardUpdate = () => setSocketSignal({ type: 'board', timestamp: Date.now() });
       const triggerBothUpdate = () => setSocketSignal({ type: 'both', timestamp: Date.now() });
 
-      socket.on('task_created', triggerTaskUpdate);
-      socket.on('task_updated', triggerTaskUpdate);
-      socket.on('task_moved', triggerTaskUpdate);
-      socket.on('task_deleted', triggerTaskUpdate);
+      // Socket Handlers - update local state directly for speed
+      const handleTaskCreated = (data) => {
+        if (!data || !data.task) return;
+        setColumns(prev => prev.map(col => {
+          if (col.id === (data.task.column?._id || data.task.column)) {
+            const newTask = {
+              id: data.task._id,
+              title: data.task.title,
+              description: data.task.description,
+              priority: data.task.priority,
+              dueDate: data.task.dueDate,
+              attachments: 0,
+              comments: 0,
+              assignee: data.task.assignee?.name || null,
+              assigneeId: data.task.assignee?._id || null,
+              columnId: col.id
+            };
+            return { ...col, tasks: [...col.tasks, newTask] };
+          }
+          return col;
+        }));
+      };
+
+      const handleTaskUpdated = (data) => {
+        if (!data || !data.task) return;
+        setColumns(prev => prev.map(col => {
+          const hasTask = col.tasks.some(t => t.id === data.task._id);
+          if (hasTask) {
+            return {
+              ...col,
+              tasks: col.tasks.map(t => t.id === data.task._id ? {
+                ...t,
+                title: data.task.title,
+                description: data.task.description,
+                priority: data.task.priority,
+                dueDate: data.task.dueDate,
+                assignee: data.task.assignee?.name || null,
+                assigneeId: data.task.assignee?._id || null,
+              } : t)
+            };
+          }
+          return col;
+        }));
+      };
+
+      const handleTaskMoved = (data) => {
+        if (!data || !data.task) return;
+        // onDragOver handles local user dragging optimistically, 
+        // this only updates if another user moved it or on refresh.
+        // To avoid mismatch during active drag, we ignore socket moves for the active task.
+        setColumns(prev => {
+          let oldColIndex = -1;
+          let taskIndex = -1;
+          prev.forEach((col, i) => {
+            const idx = col.tasks.findIndex(t => t.id === data.task._id);
+            if (idx !== -1) {
+              oldColIndex = i;
+              taskIndex = idx;
+            }
+          });
+
+          if (oldColIndex === -1) return prev; // Task not in current view
+          const newColId = data.task.column?._id || data.task.column;
+          if (prev[oldColIndex].id === newColId) return prev; // Handled locally or no col change
+
+          const newCols = [...prev];
+          const [movedTask] = newCols[oldColIndex].tasks.splice(taskIndex, 1);
+          movedTask.columnId = newColId;
+          
+          const newColIndex = newCols.findIndex(c => c.id === newColId);
+          if (newColIndex !== -1) {
+            newCols[newColIndex].tasks.splice(data.task.position || newCols[newColIndex].tasks.length, 0, movedTask);
+          }
+          
+          return newCols;
+        });
+      };
+
+      const handleTaskDeleted = (data) => {
+        if (!data || !data.taskId) return;
+        setColumns(prev => prev.map(col => ({
+          ...col,
+          tasks: col.tasks.filter(t => t.id !== data.taskId)
+        })));
+      };
+
+      socket.on('task_created', handleTaskCreated);
+      socket.on('task_updated', handleTaskUpdated);
+      socket.on('task_moved', handleTaskMoved);
+      socket.on('task_deleted', handleTaskDeleted);
       
       socket.on('member_added', triggerBothUpdate);
       socket.on('member_removed', triggerBothUpdate);
       socket.on('member_role_changed', triggerBoardUpdate);
-
-      socket.on('comment_created', triggerTaskUpdate);
-      socket.on('comment_deleted', triggerTaskUpdate);
-      socket.on('attachment_uploaded', triggerTaskUpdate);
-      socket.on('attachment_deleted', triggerTaskUpdate);
+      
+      socket.on('comment_created', handleTaskUpdated);
+      socket.on('comment_deleted', handleTaskUpdated);
+      socket.on('attachment_uploaded', handleTaskUpdated);
+      socket.on('attachment_deleted', handleTaskUpdated);
       
       // Activity is logged silently but we can update if needed, though tasks update is usually enough
       
@@ -390,17 +476,17 @@ const Board = () => {
 
       return () => {
         socket.emit('leave_board', boardId);
-        socket.off('task_created', triggerTaskUpdate);
-        socket.off('task_updated', triggerTaskUpdate);
-        socket.off('task_moved', triggerTaskUpdate);
-        socket.off('task_deleted', triggerTaskUpdate);
+        socket.off('task_created', handleTaskCreated);
+        socket.off('task_updated', handleTaskUpdated);
+        socket.off('task_moved', handleTaskMoved);
+        socket.off('task_deleted', handleTaskDeleted);
         socket.off('member_added', triggerBothUpdate);
         socket.off('member_removed', triggerBothUpdate);
         socket.off('member_role_changed', triggerBoardUpdate);
-        socket.off('comment_created', triggerTaskUpdate);
-        socket.off('comment_deleted', triggerTaskUpdate);
-        socket.off('attachment_uploaded', triggerTaskUpdate);
-        socket.off('attachment_deleted', triggerTaskUpdate);
+        socket.off('comment_created', handleTaskUpdated);
+        socket.off('comment_deleted', handleTaskUpdated);
+        socket.off('attachment_uploaded', handleTaskUpdated);
+        socket.off('attachment_deleted', handleTaskUpdated);
         socket.off('presence_update');
         disconnectSocket();
       };
@@ -523,7 +609,7 @@ const Board = () => {
       });
     } catch (err) {
       console.error('Failed to move task:', err);
-      // Revert state by fetching from server
+      // Revert state by fetching from server only if it fails
       fetchTasks(false);
     }
   };

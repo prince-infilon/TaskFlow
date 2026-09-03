@@ -70,6 +70,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
             const content = (
               <NavLink
                 to={item.path}
+                end={item.path === '/app'}
                 className={({ isActive }) => cn(
                   "relative flex items-center h-[36px] rounded-sm transition-colors group",
                   isCollapsed && !isMobileOpen ? "justify-center px-0" : "px-2",

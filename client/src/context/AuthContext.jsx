@@ -4,23 +4,48 @@ import apiClient from '../api/client';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // For initial check if we had one
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('taskflow_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('taskflow_token') || null;
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Apply token to headers immediately if it exists
+  if (token && !apiClient.defaults.headers.common['Authorization']) {
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
 
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const response = await apiClient.post('/auth/refresh');
-        const { user, token } = response.data;
-        setUser(user);
-        setToken(token);
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        if (token) {
+          // Validate existing token
+          const response = await apiClient.get('/users/me');
+          setUser(response.data.user);
+          localStorage.setItem('taskflow_user', JSON.stringify(response.data.user));
+        } else {
+          throw new Error('No token');
+        }
       } catch (error) {
-        // Refresh token invalid or missing, user is unauthenticated
-        setUser(null);
-        setToken(null);
-        delete apiClient.defaults.headers.common['Authorization'];
+        // Fallback to refresh if validation fails or token missing
+        try {
+          const response = await apiClient.post('/auth/refresh');
+          const { user: refreshedUser, token: refreshedToken } = response.data;
+          setUser(refreshedUser);
+          setToken(refreshedToken);
+          localStorage.setItem('taskflow_user', JSON.stringify(refreshedUser));
+          localStorage.setItem('taskflow_token', refreshedToken);
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${refreshedToken}`;
+        } catch (refreshErr) {
+          setUser(null);
+          setToken(null);
+          localStorage.removeItem('taskflow_user');
+          localStorage.removeItem('taskflow_token');
+          delete apiClient.defaults.headers.common['Authorization'];
+        }
       } finally {
         setIsLoading(false);
       }
@@ -36,6 +61,8 @@ export const AuthProvider = ({ children }) => {
       
       setUser(user);
       setToken(token);
+      localStorage.setItem('taskflow_user', JSON.stringify(user));
+      localStorage.setItem('taskflow_token', token);
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       return user;
@@ -51,6 +78,8 @@ export const AuthProvider = ({ children }) => {
       
       setUser(user);
       setToken(token);
+      localStorage.setItem('taskflow_user', JSON.stringify(user));
+      localStorage.setItem('taskflow_token', token);
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       return user;
@@ -67,6 +96,8 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setToken(null);
+      localStorage.removeItem('taskflow_user');
+      localStorage.removeItem('taskflow_token');
       delete apiClient.defaults.headers.common['Authorization'];
     }
   };
