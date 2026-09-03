@@ -45,7 +45,8 @@ apiClient.interceptors.response.use(
       }
 
       // Format custom error message to be consistent for UI consumption
-      const customError = new Error(data?.message || 'An error occurred on the server.');
+      const errorMessage = data?.error?.message || data?.message || data?.errors?.[0]?.msg || 'An error occurred on the server.';
+      const customError = new Error(errorMessage);
       customError.status = status;
       customError.originalError = error;
       return Promise.reject(customError);
