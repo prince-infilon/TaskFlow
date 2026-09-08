@@ -40,13 +40,13 @@ const KanbanColumn = ({ title, count, statusColor, tasks, columnId, onTaskClick 
   });
 
   return (
-    <div className="flex flex-col bg-surface-muted rounded-md w-[320px] shrink-0 p-4 h-full max-h-full overflow-hidden">
+    <div className="flex flex-col bg-transparent w-[320px] shrink-0 p-2 h-full max-h-full overflow-hidden">
       <div className="flex items-center justify-between mb-3 shrink-0">
         <div className="flex items-center gap-2">
           {/* Status Dot */}
           <div className={`w-2 h-2 rounded-full ${statusColor}`} />
-          <h3 className="text-body-medium text-primary font-medium">{title}</h3>
-          <Badge variant="neutral">{count}</Badge>
+          <h3 className="text-[12px] text-secondary font-bold uppercase tracking-wider">{title}</h3>
+          <span className="text-[12px] text-tertiary font-medium ml-1">{count}</span>
         </div>
         <IconButton variant="ghost" className="w-6 h-6" aria-label={`Add task to ${title}`}>
           <Plus className="w-4 h-4" />
@@ -103,9 +103,9 @@ const TaskCard = ({ task, isDone, onClick }) => {
   return (
     <div 
       onClick={onClick}
-      className="bg-surface border border-border rounded-md p-3 hover:border-border-strong hover:shadow-sm transition-shadow cursor-grab active:cursor-grabbing select-none"
+      className="bg-surface border border-border rounded-2xl p-5 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing select-none"
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         {/* Priority Badge */}
         <div className={`self-start ${isDone ? 'opacity-70' : ''}`}>
           <Badge variant={task.priority} className="capitalize px-1.5 py-0.5 text-[10px]">

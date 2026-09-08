@@ -37,7 +37,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
       {/* Sidebar Container */}
       <aside 
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col bg-surface border-r border-border transition-all duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-50 flex flex-col bg-canvas transition-all duration-300 ease-in-out",
           // Desktop widths
           isCollapsed ? "hidden lg:flex lg:w-[64px]" : "w-[240px]",
           // Mobile translation
@@ -47,8 +47,8 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
         {/* Logo Area */}
         <div className="flex items-center justify-between h-[64px] px-6">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-accent-600 rounded-sm flex items-center justify-center shrink-0">
-              <CheckSquare className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center shrink-0">
+              <CheckSquare className="w-5 h-5 text-white" />
             </div>
             {(!isCollapsed || isMobileOpen) && (
               <span className="text-h1 text-primary font-bold tracking-tight">TaskFlow</span>
@@ -72,10 +72,10 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
                 to={item.path}
                 end={item.path === '/app'}
                 className={({ isActive }) => cn(
-                  "relative flex items-center h-[36px] rounded-sm transition-colors group",
-                  isCollapsed && !isMobileOpen ? "justify-center px-0" : "px-2",
+                  "relative flex items-center h-[40px] rounded-2xl transition-colors group",
+                  isCollapsed && !isMobileOpen ? "justify-center px-0" : "px-4",
                   isActive 
-                    ? "bg-accent-50 text-accent-600" 
+                    ? "bg-black text-white" 
                     : "text-secondary hover:bg-surface-muted hover:text-primary"
                 )}
                 onClick={() => {
@@ -84,10 +84,6 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
               >
                 {({ isActive }) => (
                   <>
-                    {/* Active Bar Indicator */}
-                    {isActive && (
-                      <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-accent-600 rounded-r-sm" />
-                    )}
                     <Icon className={cn("w-5 h-5 shrink-0", isCollapsed && !isMobileOpen ? "" : "mr-3")} />
                     {(!isCollapsed || isMobileOpen) && (
                       <span className="text-body-medium truncate">{item.name}</span>

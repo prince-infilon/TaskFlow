@@ -149,7 +149,7 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-[64px] bg-surface border-b border-border flex items-center justify-between px-4 lg:px-8">
+    <header className="sticky top-0 z-30 h-[64px] bg-canvas flex items-center justify-between px-4 lg:px-8">
       {/* Left Area */}
       <div className="flex items-center gap-4">
         {/* Mobile Hamburger */}
