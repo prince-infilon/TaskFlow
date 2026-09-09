@@ -70,13 +70,17 @@ const initializeSocket = (server) => {
       try {
         if (!boardId) return;
 
-        // Verify authorization
+        // Verify authorization via Organization
         const board = await Board.findById(boardId);
         if (!board) return socket.emit('error', { message: 'Board not found' });
 
-        const isMember = board.members.some(m => m.user.toString() === socket.user._id.toString());
-        if (!isMember && socket.user.globalRole !== 'admin') {
-          return socket.emit('error', { message: 'Unauthorized to join this board' });
+        const Organization = require('./models/Organization');
+        const org = await Organization.findById(board.organizationId);
+        if (!org) return socket.emit('error', { message: 'Organization not found' });
+
+        const isOrgMember = org.members.some(m => m.user.toString() === socket.user._id.toString());
+        if (!isOrgMember) {
+          return socket.emit('error', { message: 'Unauthorized to join this board in this organization' });
         }
 
         // Leave previous board if any
@@ -148,4 +152,13 @@ const broadcastBoardEvent = (boardId, eventName, payload) => {
   }
 };
 
-module.exports = { initializeSocket, getIo, broadcastBoardEvent };
+const broadcastUserEvent = (eventName, payload) => {
+  try {
+    getIo().emit(eventName, payload);
+  } catch (err) {
+    // Silent fail if socket not active
+  }
+};
+
+module.exports = { initializeSocket, getIo, broadcastBoardEvent, broadcastUserEvent };
+

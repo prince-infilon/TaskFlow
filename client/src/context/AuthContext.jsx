@@ -11,11 +11,19 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => {
     return localStorage.getItem('taskflow_token') || null;
   });
+  const [organizations, setOrganizations] = useState([]);
+  const [activeOrganization, setActiveOrganization] = useState(() => {
+    const saved = localStorage.getItem('taskflow_active_org');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Apply token to headers immediately if it exists
+  // Apply token and org to headers immediately if they exist
   if (token && !apiClient.defaults.headers.common['Authorization']) {
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
+  if (activeOrganization && !apiClient.defaults.headers.common['x-organization-id']) {
+    apiClient.defaults.headers.common['x-organization-id'] = activeOrganization._id;
   }
 
   useEffect(() => {
@@ -26,6 +34,23 @@ export const AuthProvider = ({ children }) => {
           const response = await apiClient.get('/users/me');
           setUser(response.data.user);
           localStorage.setItem('taskflow_user', JSON.stringify(response.data.user));
+          
+          // Fetch organizations
+          const orgResponse = await apiClient.get('/orgs');
+          const orgs = orgResponse.organizations || orgResponse.data?.organizations || [];
+          setOrganizations(orgs);
+          
+          if (orgs.length > 0) {
+            const savedOrg = localStorage.getItem('taskflow_active_org');
+            const parsedOrg = savedOrg ? JSON.parse(savedOrg) : null;
+            
+            // If saved org doesn't exist in loaded orgs, fallback to first
+            if (!parsedOrg || !orgs.find(o => o._id === parsedOrg._id)) {
+              setActiveOrganization(orgs[0]);
+              localStorage.setItem('taskflow_active_org', JSON.stringify(orgs[0]));
+              apiClient.defaults.headers.common['x-organization-id'] = orgs[0]._id;
+            }
+          }
         } else {
           throw new Error('No token');
         }
@@ -39,12 +64,31 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('taskflow_user', JSON.stringify(refreshedUser));
           localStorage.setItem('taskflow_token', refreshedToken);
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${refreshedToken}`;
+          
+          // Fetch organizations after refresh
+          const orgResponse = await apiClient.get('/orgs');
+          const orgs = orgResponse.organizations || orgResponse.data?.organizations || [];
+          setOrganizations(orgs);
+          
+          if (orgs.length > 0) {
+            const savedOrg = localStorage.getItem('taskflow_active_org');
+            const parsedOrg = savedOrg ? JSON.parse(savedOrg) : null;
+            if (!parsedOrg || !orgs.find(o => o._id === parsedOrg._id)) {
+              setActiveOrganization(orgs[0]);
+              localStorage.setItem('taskflow_active_org', JSON.stringify(orgs[0]));
+              apiClient.defaults.headers.common['x-organization-id'] = orgs[0]._id;
+            }
+          }
         } catch (refreshErr) {
           setUser(null);
           setToken(null);
+          setOrganizations([]);
+          setActiveOrganization(null);
           localStorage.removeItem('taskflow_user');
           localStorage.removeItem('taskflow_token');
+          localStorage.removeItem('taskflow_active_org');
           delete apiClient.defaults.headers.common['Authorization'];
+          delete apiClient.defaults.headers.common['x-organization-id'];
         }
       } finally {
         setIsLoading(false);
@@ -57,16 +101,57 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
-      const { user, token } = response.data;
       
-      setUser(user);
-      setToken(token);
-      localStorage.setItem('taskflow_user', JSON.stringify(user));
-      localStorage.setItem('taskflow_token', token);
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      return user;
+      if (response.data && response.data.requiresMfa) {
+        return { requiresMfa: true, mfaToken: response.data.mfaToken };
+      }
+
+      const { user, token } = response.data || response;
+      await handleAuthSuccess(user, token);
+      return { success: true, user };
     } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleAuthSuccess = async (user, token) => {
+    setUser(user);
+    setToken(token);
+    localStorage.setItem('taskflow_user', JSON.stringify(user));
+    localStorage.setItem('taskflow_token', token);
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+    // Fetch organizations
+    const orgResponse = await apiClient.get('/orgs');
+    const orgs = orgResponse.organizations || orgResponse.data?.organizations || [];
+    setOrganizations(orgs);
+    
+    if (orgs.length > 0) {
+      setActiveOrganization(orgs[0]);
+      localStorage.setItem('taskflow_active_org', JSON.stringify(orgs[0]));
+      apiClient.defaults.headers.common['x-organization-id'] = orgs[0]._id;
+    }
+  };
+
+  const verifyMfaChallenge = async (mfaToken, code) => {
+    try {
+      const response = await apiClient.post('/auth/mfa/challenge', { mfaToken, code });
+      const { user, token } = response.data || response;
+      await handleAuthSuccess(user, token);
+      return { success: true, user };
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const completeOAuth = async (token) => {
+    try {
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      const response = await apiClient.get('/users/me');
+      await handleAuthSuccess(response.data.user, token);
+      return { success: true, user: response.data.user };
+    } catch (error) {
+      delete apiClient.defaults.headers.common['Authorization'];
       throw error;
     }
   };
@@ -74,13 +159,27 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const response = await apiClient.post('/auth/register', { name, email, password });
-      const { user, token } = response.data;
+      const { user, token } = response.data || response;
       
       setUser(user);
       setToken(token);
       localStorage.setItem('taskflow_user', JSON.stringify(user));
       localStorage.setItem('taskflow_token', token);
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // Fetch organizations (new user will have one created via registration hook, but wait, 
+      // the migration script created orgs. Does registration create one automatically? 
+      // We haven't updated register backend to create an org yet. For now let's just fetch it, 
+      // we'll fix register if needed)
+      const orgResponse = await apiClient.get('/orgs');
+      const orgs = orgResponse.organizations || orgResponse.data?.organizations || [];
+      setOrganizations(orgs);
+      
+      if (orgs.length > 0) {
+        setActiveOrganization(orgs[0]);
+        localStorage.setItem('taskflow_active_org', JSON.stringify(orgs[0]));
+        apiClient.defaults.headers.common['x-organization-id'] = orgs[0]._id;
+      }
       
       return user;
     } catch (error) {
@@ -96,20 +195,37 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setToken(null);
+      setOrganizations([]);
+      setActiveOrganization(null);
       localStorage.removeItem('taskflow_user');
       localStorage.removeItem('taskflow_token');
+      localStorage.removeItem('taskflow_active_org');
       delete apiClient.defaults.headers.common['Authorization'];
+      delete apiClient.defaults.headers.common['x-organization-id'];
     }
+  };
+
+  const switchOrganization = (org) => {
+    setActiveOrganization(org);
+    localStorage.setItem('taskflow_active_org', JSON.stringify(org));
+    apiClient.defaults.headers.common['x-organization-id'] = org._id;
+    // Reload the page to reset all states scoped to the old org
+    window.location.reload();
   };
 
   const value = {
     user,
     token,
+    organizations,
+    activeOrganization,
+    switchOrganization,
     isAuthenticated: !!user,
     isLoading,
     login,
     register,
-    logout
+    logout,
+    verifyMfaChallenge,
+    completeOAuth
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

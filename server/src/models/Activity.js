@@ -4,7 +4,7 @@ const activitySchema = new mongoose.Schema({
   board: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Board',
-    required: true,
+    required: false,
     index: true
   },
   user: {
@@ -27,14 +27,20 @@ const activitySchema = new mongoose.Schema({
       'comment_created',
       'comment_deleted',
       'attachment_uploaded',
-      'attachment_deleted'
+      'attachment_deleted',
+      'user_created',
+      'user_updated',
+      'user_deactivated',
+      'user_activated',
+      'user_reassigned',
+      'password_reset'
     ],
     required: true,
     index: true
   },
   entityType: {
     type: String,
-    enum: ['board', 'member', 'task', 'comment', 'attachment'],
+    enum: ['board', 'member', 'task', 'comment', 'attachment', 'user'],
     required: true
   },
   entityId: {

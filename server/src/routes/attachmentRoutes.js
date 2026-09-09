@@ -8,14 +8,15 @@ const upload = require('../middleware/multerConfig');
 
 // Error handler for multer
 const multerErrorHandler = (err, req, res, next) => {
-  if (err.message === 'Invalid file type') {
-    return res.status(400).json({ success: false, error: { message: 'Invalid file type' } });
+  if (err.message && (err.message.includes('Invalid') || err.message.includes('prohibited') || err.message.includes('Allowed'))) {
+    return res.status(400).json({ success: false, error: { message: err.message } });
   }
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ success: false, error: { message: 'File is too large (max 5MB)' } });
   }
   next(err);
 };
+
 
 router.get('/', getAttachments);
 router.post('/', (req, res, next) => {

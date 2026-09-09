@@ -127,7 +127,16 @@ const Boards = () => {
         }
       >
         <div className="space-y-4">
-          {error && <div className="text-small text-danger-500">{error}</div>}
+          {error && (
+            <div className="text-small p-3 bg-danger-50 text-danger-600 rounded-md border border-danger-100 flex flex-col gap-2">
+              <span>{error}</span>
+              {error.toLowerCase().includes('limit') && (
+                <Link to="/app/settings/billing" className="font-bold underline hover:text-danger-700">
+                  Upgrade your plan
+                </Link>
+              )}
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-small text-primary font-medium">Board Name *</label>
             <Input 

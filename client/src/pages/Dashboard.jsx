@@ -93,7 +93,7 @@ const Dashboard = () => {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-h2 text-primary">My Tasks</h2>
-          <Link to="/tasks" className="text-small text-accent-600 hover:text-accent-700 font-medium focus:outline-none focus:underline">
+          <Link to="/app/tasks" className="text-small text-accent-600 hover:text-accent-700 font-medium focus:outline-none focus:underline">
             View all
           </Link>
         </div>
@@ -179,7 +179,7 @@ const Dashboard = () => {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-h2 text-primary">My Boards</h2>
-          <Link to="/boards" className="text-small text-accent-600 hover:text-accent-700 font-medium focus:outline-none focus:underline">
+          <Link to="/app/boards" className="text-small text-accent-600 hover:text-accent-700 font-medium focus:outline-none focus:underline">
             View all
           </Link>
         </div>

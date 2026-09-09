@@ -9,20 +9,31 @@ import {
   Settings, 
   PanelLeftClose, 
   PanelLeftOpen,
-  X
+  X,
+  CreditCard,
+  Users
 } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import Tooltip from '../ui/Tooltip';
-
-const navItems = [
-  { name: 'Dashboard', path: '/app', icon: LayoutDashboard },
-  { name: 'Boards', path: '/app/boards', icon: KanbanSquare },
-  { name: 'My Tasks', path: '/app/tasks', icon: CheckSquare },
-  { name: 'Activity', path: '/app/activity', icon: Activity },
-  { name: 'Settings', path: '/app/settings', icon: Settings },
-];
+import Select from '../ui/Select';
+import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => {
+  const { user, organizations = [], activeOrganization, switchOrganization } = useAuth();
+
+  const navItems = [
+    { name: 'Dashboard', path: '/app', icon: LayoutDashboard, end: true },
+    { name: 'Boards', path: '/app/boards', icon: KanbanSquare, end: false },
+    { name: 'My Tasks', path: '/app/tasks', icon: CheckSquare, end: true },
+    { name: 'Activity', path: '/app/activity', icon: Activity, end: true },
+    ...(user?.globalRole === 'admin' ? [{ name: 'User Management', path: '/app/users', icon: Users, end: true }] : []),
+    ...(user?.globalRole === 'manager' ? [{ name: 'My Team', path: '/app/team', icon: Users, end: true }] : []),
+    { name: 'Workspace', path: '/app/settings/organization', icon: Settings, end: true },
+    { name: 'Billing', path: '/app/settings/billing', icon: CreditCard, end: true },
+    { name: 'Settings', path: '/app/settings', icon: Settings, end: true },
+  ];
+
+
   return (
     <>
       {/* Mobile Scrim */}
@@ -63,6 +74,21 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
           </div>
         </div>
 
+        {/* Organization Switcher */}
+        {(!isCollapsed || isMobileOpen) && (
+          <div className="px-4 pb-2">
+            <Select 
+              options={organizations.map(org => ({ label: org.name, value: org._id }))}
+              value={activeOrganization?._id}
+              onChange={(value) => {
+                const org = organizations.find(o => o._id === value);
+                if (org) switchOrganization(org);
+              }}
+              className="w-full"
+            />
+          </div>
+        )}
+
         {/* Navigation */}
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
@@ -70,7 +96,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
             const content = (
               <NavLink
                 to={item.path}
-                end={item.path === '/app'}
+                end={item.end !== undefined ? item.end : true}
                 className={({ isActive }) => cn(
                   "relative flex items-center h-[40px] rounded-2xl transition-colors group",
                   isCollapsed && !isMobileOpen ? "justify-center px-0" : "px-4",

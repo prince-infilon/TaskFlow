@@ -20,5 +20,7 @@ const columnSchema = new mongoose.Schema({
 
 // Prevent duplicate column names in the same board
 columnSchema.index({ board: 1, name: 1 }, { unique: true });
+columnSchema.index({ board: 1, position: 1 });
 
 module.exports = mongoose.model('Column', columnSchema);
+

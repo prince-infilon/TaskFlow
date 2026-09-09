@@ -10,8 +10,12 @@ exports.authorizeBoard = (...allowedBoardRoles) => {
         return res.status(404).json({ success: false, error: { message: 'Board not found.' } });
       }
 
-      // Admin global role skips board role checks completely
-      if (req.user.globalRole === 'admin') {
+      if (board.organizationId.toString() !== req.organization._id.toString()) {
+        return res.status(404).json({ success: false, error: { message: 'Board not found in this organization.' } });
+      }
+
+      // Org admin skips board role checks completely
+      if (req.orgRole === 'admin') {
         req.board = board;
         req.boardRole = 'admin'; // virtual role for admins
         return next();

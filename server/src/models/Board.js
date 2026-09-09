@@ -19,6 +19,11 @@ const boardSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true
+  },
   description: {
     type: String,
     trim: true,
@@ -32,4 +37,10 @@ const boardSchema = new mongoose.Schema({
   members: [memberSchema]
 }, { timestamps: true });
 
+// Tenant and lookup performance indexes
+boardSchema.index({ organizationId: 1 });
+boardSchema.index({ owner: 1 });
+boardSchema.index({ 'members.user': 1 });
+
 module.exports = mongoose.model('Board', boardSchema);
+

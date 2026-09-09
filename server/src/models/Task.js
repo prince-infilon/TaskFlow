@@ -21,11 +21,20 @@ const taskSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  startDate: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   dueDate: {
     type: String,
     trim: true,
     default: ''
   },
+  subtasks: [{
+    title: { type: String, required: true, trim: true },
+    isCompleted: { type: Boolean, default: false }
+  }],
   assignee: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -48,4 +57,10 @@ const taskSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Performance indexes for frequent queries
+taskSchema.index({ board: 1, column: 1, position: 1 });
+taskSchema.index({ board: 1, assignee: 1 });
+taskSchema.index({ board: 1, dueDate: 1 });
+
 module.exports = mongoose.model('Task', taskSchema);
+

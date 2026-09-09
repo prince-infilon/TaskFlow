@@ -14,11 +14,27 @@ const apiClient = axios.create({
 // Centralized Request Interceptor
 apiClient.interceptors.request.use(
   (config) => {
-    // Future: Add access tokens to headers here if using a short-lived memory token
-    // const token = useAuthStore.getState().token;
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    const token = localStorage.getItem('taskflow_token');
+    if (token) {
+      if (typeof config.headers.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+    const savedOrg = localStorage.getItem('taskflow_active_org');
+    if (savedOrg) {
+      try {
+        const parsed = JSON.parse(savedOrg);
+        if (parsed?._id) {
+          if (typeof config.headers.set === 'function') {
+            config.headers.set('x-organization-id', parsed._id);
+          } else {
+            config.headers['x-organization-id'] = parsed._id;
+          }
+        }
+      } catch (e) {}
+    }
     return config;
   },
   (error) => {

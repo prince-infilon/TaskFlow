@@ -6,6 +6,7 @@ const { logActivity } = require('../services/activityService');
 const { broadcastBoardEvent } = require('../socket');
 const fs = require('fs');
 const path = require('path');
+const { evaluateAutomations } = require('../services/automationService');
 
 // Escape user input for safe use inside a RegExp
 const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -95,7 +96,7 @@ exports.getTasks = async (req, res, next) => {
 exports.createTask = async (req, res, next) => {
   try {
     const { boardId } = req.params;
-    const { column, title, description, dueDate, assignee, priority, position } = req.body;
+    const { column, title, description, startDate, dueDate, assignee, priority, position, subtasks } = req.body;
 
     // Validate required fields early
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
@@ -127,10 +128,12 @@ exports.createTask = async (req, res, next) => {
       column,
       title,
       description,
-      dueDate,
+      startDate: startDate || '',
+      dueDate: dueDate || '',
       assignee: assignee || null,
       priority: priority || 'low',
       position: pos,
+      subtasks: Array.isArray(subtasks) ? subtasks : [],
       createdBy: req.user._id
     });
 
@@ -147,6 +150,9 @@ exports.createTask = async (req, res, next) => {
 
     const populatedTask = await Task.findById(task._id).populate('assignee', 'name email avatarUrl');
     broadcastBoardEvent(boardId, 'task_created', { task: populatedTask });
+
+    // Trigger automations without blocking
+    evaluateAutomations('task_created', task, { userId: req.user._id });
 
     res.status(201).json({ success: true, data: { task: populatedTask } });
   } catch (error) {
@@ -207,7 +213,7 @@ exports.updateTask = async (req, res, next) => {
     const oldAssignee = task.assignee?.toString();
 
     Object.keys(updates).forEach(key => {
-      if (['title', 'description', 'dueDate', 'assignee', 'priority', 'column', 'position'].includes(key)) {
+      if (['title', 'description', 'startDate', 'dueDate', 'assignee', 'priority', 'column', 'position', 'subtasks'].includes(key)) {
         task[key] = updates[key] === '' && key === 'assignee' ? null : updates[key];
       }
     });
@@ -326,6 +332,9 @@ exports.moveTask = async (req, res, next) => {
 
     const populatedTask = await Task.findById(task._id).populate('assignee', 'name email avatarUrl');
     broadcastBoardEvent(boardId, 'task_moved', { task: populatedTask });
+
+    // Trigger automations without blocking
+    evaluateAutomations('task_moved', task, { userId: req.user._id });
 
     res.status(200).json({ success: true, data: { task: populatedTask } });
   } catch (error) {

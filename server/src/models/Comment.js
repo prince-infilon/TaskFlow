@@ -23,4 +23,9 @@ const commentSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Performance indexes
+commentSchema.index({ task: 1, createdAt: 1 });
+commentSchema.index({ board: 1 });
+
 module.exports = mongoose.model('Comment', commentSchema);
+

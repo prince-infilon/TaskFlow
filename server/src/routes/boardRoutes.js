@@ -7,11 +7,15 @@ const { validateRequest } = require('../middleware/validateRequest');
 const columnRoutes = require('./columnRoutes');
 const taskRoutes = require('./taskRoutes');
 const activityRoutes = require('./activityRoutes');
+const automationController = require('../controllers/automationController');
+
+const { requireOrganization } = require('../middleware/orgMiddleware');
 
 const router = express.Router();
 
 // Require authentication for all board routes
 router.use(authenticate);
+router.use(requireOrganization);
 
 // Validation schemas
 const createBoardValidation = [
@@ -50,5 +54,13 @@ router.delete('/:boardId/members/:userId', authorizeBoard('manager'), boardContr
 router.use('/:boardId/columns', authorizeBoard(), columnRoutes);
 router.use('/:boardId/tasks', authorizeBoard(), taskRoutes);
 router.use('/:boardId/activity', authorizeBoard(), activityRoutes);
+
+// Automations
+router.get('/:boardId/automations', authorizeBoard(), automationController.getAutomations);
+router.post('/:boardId/automations', authorizeBoard(), automationController.createAutomation);
+router.delete('/:boardId/automations/:automationId', authorizeBoard(), automationController.deleteAutomation);
+
+// Analytics
+router.get('/:boardId/analytics', authorizeBoard(), boardController.getBoardAnalytics);
 
 module.exports = router;

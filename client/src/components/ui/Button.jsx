@@ -10,26 +10,27 @@ const Button = React.forwardRef(({
   children,
   ...props 
 }, ref) => {
-  const baseStyles = "inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-opacity-40 focus-visible:ring-offset-2 disabled:pointer-events-none rounded-sm";
+  const baseStyles = "inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-opacity-40 focus-visible:ring-offset-2 disabled:pointer-events-none rounded-md";
   
   const variants = {
-    primary: "bg-accent-600 text-on-accent hover:bg-accent-700 active:bg-accent-700 disabled:bg-inset disabled:text-tertiary",
-    secondary: "bg-surface border border-border-strong text-primary hover:bg-surface-muted active:bg-surface-muted disabled:bg-inset disabled:text-tertiary",
-    ghost: "bg-transparent text-primary hover:bg-surface-muted active:bg-surface-muted disabled:text-tertiary",
-    destructive: "bg-danger-500 text-on-accent hover:bg-danger-500/90 active:bg-danger-500/90 disabled:bg-inset disabled:text-tertiary",
+    primary: "bg-black text-white hover:bg-neutral-800 active:bg-neutral-900 disabled:bg-neutral-200 disabled:text-neutral-500 shadow-sm",
+    secondary: "bg-white border border-border text-primary hover:bg-neutral-50 active:bg-neutral-100 disabled:bg-neutral-100 disabled:text-neutral-400",
+    outline: "bg-transparent border border-border text-primary hover:bg-neutral-50 active:bg-neutral-100 disabled:text-neutral-400",
+    ghost: "bg-transparent text-primary hover:bg-neutral-100 active:bg-neutral-200 disabled:text-neutral-400",
+    destructive: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-neutral-200 disabled:text-neutral-500 shadow-sm",
   };
 
   const sizes = {
-    sm: "h-[28px] px-2 text-small",
-    md: "h-[36px] px-3 text-body-medium",
-    lg: "h-[40px] px-4 text-body-medium",
+    sm: "h-[30px] px-2.5 text-xs",
+    md: "h-[36px] px-3.5 text-sm",
+    lg: "h-[40px] px-4 text-sm",
   };
 
   return (
     <button
       ref={ref}
       disabled={disabled || isLoading}
-      className={cn(baseStyles, variants[variant], sizes[size], className)}
+      className={cn(baseStyles, variants[variant] || variants.primary, sizes[size] || sizes.md, className)}
       {...props}
     >
       {isLoading && (

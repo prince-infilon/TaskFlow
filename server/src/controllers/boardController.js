@@ -1,16 +1,24 @@
 const Board = require('../models/Board');
 const User = require('../models/User');
 const Column = require('../models/Column');
+const Task = require('../models/Task');
+const Activity = require('../models/Activity');
 const { logActivity } = require('../services/activityService');
 const { broadcastBoardEvent } = require('../socket');
+const { checkBoardLimit } = require('../services/limitService');
 
 exports.createBoard = async (req, res, next) => {
   try {
     const { name, description } = req.body;
-    
+    const orgId = req.organization._id;
+
+    // Enforce tier limits
+    await checkBoardLimit(orgId);
+
     const board = new Board({
       name,
       description,
+      organizationId: req.organization._id,
       owner: req.user._id,
       members: [{ user: req.user._id, role: 'manager' }]
     });
@@ -40,12 +48,10 @@ exports.createBoard = async (req, res, next) => {
 
 exports.getBoards = async (req, res, next) => {
   try {
-    // If admin, they technically could see all boards, but for now we'll fetch boards they are a member of
-    // Admin global access is handled per-board usually, but listing can just return joined boards
-    // unless admin explicitly wants all. We'll default to joined boards.
-    const query = req.user.globalRole === 'admin' && req.query.all === 'true' 
-      ? {} 
-      : { 'members.user': req.user._id };
+    // Org admins can see all boards in the org. Other org members only see boards they are invited to.
+    const query = req.orgRole === 'admin' 
+      ? { organizationId: req.organization._id } 
+      : { organizationId: req.organization._id, 'members.user': req.user._id };
 
     const boards = await Board.find(query)
       .select('-members') // Exclude members list for overview
@@ -198,6 +204,56 @@ exports.removeMember = async (req, res, next) => {
 
     broadcastBoardEvent(board._id, 'member_removed', { userId });
     res.status(200).json({ success: true, data: { message: 'Member removed successfully.' } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getBoardAnalytics = async (req, res, next) => {
+  try {
+    const { boardId } = req.params;
+    
+    const tasks = await Task.find({ board: boardId }).populate('column', 'name');
+    const columns = await Column.find({ board: boardId }).sort('position');
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.column && (t.column.name.toLowerCase().includes('done') || t.column.name.toLowerCase().includes('complete'))).length;
+    const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+    const tasksByColumn = {};
+    columns.forEach(c => {
+      tasksByColumn[c.name] = tasks.filter(t => t.column && t.column._id.toString() === c._id.toString()).length;
+    });
+
+    const tasksByPriority = {
+      low: tasks.filter(t => t.priority === 'low').length,
+      medium: tasks.filter(t => t.priority === 'medium').length,
+      high: tasks.filter(t => t.priority === 'high').length
+    };
+
+    const overdueTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.column && !t.column.name.toLowerCase().includes('done')).length;
+
+    // Activity in last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const recentActivity = await Activity.find({
+      board: boardId,
+      createdAt: { $gte: sevenDaysAgo }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalTasks,
+        completedTasks,
+        completionRate,
+        tasksByColumn,
+        tasksByPriority,
+        overdueTasks,
+        recentActivityCount: recentActivity.length
+      }
+    });
   } catch (error) {
     next(error);
   }

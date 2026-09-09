@@ -12,9 +12,9 @@ const IconButton = React.forwardRef(({
   const baseStyles = "inline-flex items-center justify-center w-[32px] h-[32px] rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-opacity-40 focus-visible:ring-offset-2 disabled:pointer-events-none";
   
   const variants = {
-    ghost: "bg-transparent text-secondary hover:bg-surface-muted active:bg-surface-muted disabled:text-tertiary",
-    secondary: "bg-surface border border-border-strong text-secondary hover:bg-surface-muted active:bg-surface-muted disabled:bg-inset disabled:text-tertiary",
-    primary: "bg-accent-600 text-on-accent hover:bg-accent-700 active:bg-accent-700 disabled:bg-inset disabled:text-tertiary",
+    ghost: "bg-transparent text-secondary hover:bg-neutral-100 hover:text-primary active:bg-neutral-200 disabled:text-neutral-400",
+    secondary: "bg-white border border-border text-primary hover:bg-neutral-50 active:bg-neutral-100 disabled:bg-neutral-100 disabled:text-neutral-400",
+    primary: "bg-black text-white hover:bg-neutral-800 active:bg-neutral-900 disabled:bg-neutral-200 disabled:text-neutral-400 shadow-sm",
   };
 
   return (

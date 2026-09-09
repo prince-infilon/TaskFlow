@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import apiClient from '../api/client';
-import { useAuth } from '../context/AuthContext';
-import { socket, connectSocket, disconnectSocket } from '../api/socket';
-import { Search, Filter, Settings, Plus, Calendar, Paperclip, MessageSquare, Trash2, Download } from 'lucide-react';
+import { Search, Filter, Settings, Plus, Calendar as CalendarIcon, Paperclip, MessageSquare, Trash2, Download, LayoutDashboard, CalendarDays, BarChartHorizontal, Zap, PieChart } from 'lucide-react';
 import { 
   DndContext, 
   DragOverlay, 
@@ -32,6 +29,13 @@ import Badge from '../components/ui/Badge';
 import Drawer from '../components/ui/Drawer';
 import Modal from '../components/ui/Modal';
 import Select from '../components/ui/Select';
+import CalendarView from '../components/views/CalendarView';
+import GanttView from '../components/views/GanttView';
+import AnalyticsView from '../components/views/AnalyticsView';
+import AutomationsModal from '../components/board/AutomationsModal';
+import apiClient from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { socket, connectSocket, disconnectSocket } from '../api/socket';
 
 const KanbanColumn = ({ title, count, statusColor, tasks, columnId, onTaskClick }) => {
   const { setNodeRef } = useDroppable({
@@ -130,7 +134,7 @@ const TaskCard = ({ task, isDone, onClick }) => {
           <div className="flex items-center gap-3 text-small text-tertiary">
             {task.dueDate && (
               <div className={`flex items-center gap-1 ${task.isOverdue && !isDone ? 'text-danger-500 font-medium' : ''}`}>
-                <Calendar className="w-3.5 h-3.5" />
+                <CalendarIcon className="w-3.5 h-3.5" />
                 <span className="text-[11px]">{task.dueDate}</span>
               </div>
             )}
@@ -138,6 +142,12 @@ const TaskCard = ({ task, isDone, onClick }) => {
               <div className="flex items-center gap-1">
                 <Paperclip className="w-3.5 h-3.5" />
                 <span className="text-[11px]">{task.attachments}</span>
+              </div>
+            )}
+            {task.subtasks?.length > 0 && (
+              <div className="flex items-center gap-1 text-accent-600">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                <span className="text-[11px]">{task.subtasks.filter(st => st.isCompleted).length}/{task.subtasks.length}</span>
               </div>
             )}
             {task.comments > 0 && (
@@ -174,6 +184,7 @@ const Board = () => {
 
   const [columns, setColumns] = useState([]);
   const [activeTask, setActiveTask] = useState(null);
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban', 'calendar', 'gantt', 'analytics'
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState({
@@ -231,6 +242,9 @@ const Board = () => {
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'member' });
   const [inviteError, setInviteError] = useState('');
   
+  // Automations Modal State
+  const [isAutomationsModalOpen, setIsAutomationsModalOpen] = useState(false);
+
   // Generic Confirmation Modal State
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -337,7 +351,9 @@ const Board = () => {
             title: t.title,
             description: t.description,
             priority: t.priority,
-            dueDate: t.dueDate,
+            startDate: t.startDate || '',
+            dueDate: t.dueDate || '',
+            subtasks: t.subtasks || [],
             attachments: t.attachments || 0,
             comments: t.comments || 0,
             assignee: t.assignee?.name || t.assignee || null,
@@ -386,7 +402,9 @@ const Board = () => {
               title: data.task.title,
               description: data.task.description,
               priority: data.task.priority,
-              dueDate: data.task.dueDate,
+              startDate: data.task.startDate || '',
+              dueDate: data.task.dueDate || '',
+              subtasks: data.task.subtasks || [],
               attachments: 0,
               comments: 0,
               assignee: data.task.assignee?.name || null,
@@ -411,7 +429,9 @@ const Board = () => {
                 title: data.task.title,
                 description: data.task.description,
                 priority: data.task.priority,
-                dueDate: data.task.dueDate,
+                startDate: data.task.startDate || '',
+                dueDate: data.task.dueDate || '',
+                subtasks: data.task.subtasks || [],
                 assignee: data.task.assignee?.name || null,
                 assigneeId: data.task.assignee?._id || null,
               } : t)
@@ -1009,8 +1029,43 @@ const Board = () => {
                 </AvatarGroup>
               </div>
               
-              <div className="hidden sm:flex border-l border-border h-6 mx-1" />
               
+              <div className="hidden sm:flex border-l border-border h-6 mx-1" />
+
+              {/* View Switcher */}
+              <div className="flex bg-surface-muted rounded-md p-1 shrink-0">
+                <button
+                  onClick={() => setViewMode('kanban')}
+                  className={`p-1.5 rounded-sm transition-colors ${viewMode === 'kanban' ? 'bg-surface shadow-sm text-primary' : 'text-tertiary hover:text-secondary'}`}
+                  title="Kanban View"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('calendar')}
+                  className={`p-1.5 rounded-sm transition-colors ${viewMode === 'calendar' ? 'bg-surface shadow-sm text-primary' : 'text-tertiary hover:text-secondary'}`}
+                  title="Calendar View"
+                >
+                  <CalendarDays className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('gantt')}
+                  className={`p-1.5 rounded-sm transition-colors ${viewMode === 'gantt' ? 'bg-surface shadow-sm text-primary' : 'text-tertiary hover:text-secondary'}`}
+                  title="Gantt View"
+                >
+                  <BarChartHorizontal className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('analytics')}
+                  className={`p-1.5 rounded-sm transition-colors ${viewMode === 'analytics' ? 'bg-surface shadow-sm text-primary' : 'text-tertiary hover:text-secondary'}`}
+                  title="Analytics View"
+                >
+                  <PieChart className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex border-l border-border h-6 mx-1" />
+
               <Button variant="primary" size="sm" className="shrink-0" onClick={() => setIsModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-1.5" />
                 Add Task
@@ -1018,9 +1073,20 @@ const Board = () => {
               
               <IconButton 
                 variant="ghost" 
+                aria-label="Automations" 
+                className="shrink-0 h-[32px] w-[32px] text-accent-500 hover:bg-accent-50"
+                onClick={() => setIsAutomationsModalOpen(true)}
+                title="Automations"
+              >
+                <Zap className="w-4 h-4" />
+              </IconButton>
+              
+              <IconButton 
+                variant="ghost" 
                 aria-label="Board settings" 
                 className="shrink-0 h-[32px] w-[32px]"
                 onClick={() => setIsEditModalOpen(true)}
+                title="Settings"
               >
                 <Settings className="w-4 h-4" />
               </IconButton>
@@ -1029,67 +1095,127 @@ const Board = () => {
         </div>
       </div>
 
-      {/* Kanban Board Area */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragEnd={onDragEnd}
-      >
-        <div className="flex-1 overflow-x-auto overflow-y-hidden hide-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 pb-4">
-          <div className="flex gap-4 h-full items-start min-w-max">
-            {columns.map((col) => (
-              <KanbanColumn 
-                key={col.id}
-                columnId={col.id}
-                title={col.title}
-                count={col.tasks.length}
-                statusColor={col.statusColor}
-                tasks={col.tasks}
-                onTaskClick={async (task) => {
-                  setSelectedTask(task);
-                  setTaskComments([]);
-                  setTaskAttachments([]);
-                  setUploadError('');
-                  setIsDrawerOpen(true);
-                  
-                  try {
-                    const [cRes, aRes] = await Promise.all([
-                      apiClient.get(`/boards/${boardId}/tasks/${task.id}/comments`),
-                      apiClient.get(`/boards/${boardId}/tasks/${task.id}/attachments`)
-                    ]);
-                    setTaskComments(cRes.data.comments);
-                    setTaskAttachments(aRes.data.attachments);
-                  } catch (err) {
-                    console.error('Failed to load comments or attachments', err);
-                  }
-                }}
-              />
-            ))}
+      {/* Main Content Area */}
+      {viewMode === 'kanban' && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+        >
+          <div className="flex-1 overflow-x-auto overflow-y-hidden hide-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 pb-4">
+            <div className="flex gap-4 h-full items-start min-w-max">
+              {columns.map((col) => (
+                <KanbanColumn 
+                  key={col.id}
+                  columnId={col.id}
+                  title={col.title}
+                  count={col.tasks.length}
+                  statusColor={col.statusColor}
+                  tasks={col.tasks}
+                  onTaskClick={async (task) => {
+                    setSelectedTask(task);
+                    setTaskComments([]);
+                    setTaskAttachments([]);
+                    setUploadError('');
+                    setIsDrawerOpen(true);
+                    
+                    try {
+                      const [cRes, aRes] = await Promise.all([
+                        apiClient.get(`/boards/${boardId}/tasks/${task.id}/comments`),
+                        apiClient.get(`/boards/${boardId}/tasks/${task.id}/attachments`)
+                      ]);
+                      setTaskComments(cRes.data.comments);
+                      setTaskAttachments(aRes.data.attachments);
+                    } catch (err) {
+                      console.error('Failed to load comments or attachments', err);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+            
+            {hasMoreTasks && (
+              <div className="mt-4 flex justify-center w-full min-w-max pb-8">
+                <Button 
+                  variant="secondary" 
+                  onClick={() => fetchTasks(true)}
+                  isLoading={isTasksLoading}
+                >
+                  Load more tasks
+                </Button>
+              </div>
+            )}
           </div>
-          
-          {hasMoreTasks && (
-            <div className="mt-4 flex justify-center w-full min-w-max pb-8">
-              <Button 
-                variant="secondary" 
-                onClick={() => fetchTasks(true)}
-                isLoading={isTasksLoading}
-              >
-                Load more tasks
-              </Button>
-            </div>
-          )}
-        </div>
 
-        <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.5' } } }) }}>
-          {activeTask ? (
-            <div className="opacity-90 scale-105 shadow-md">
-              <TaskCard task={activeTask} isDone={false} onClick={() => {}} />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.5' } } }) }}>
+            {activeTask ? (
+              <div className="opacity-90 scale-105 shadow-md">
+                <TaskCard task={activeTask} isDone={false} onClick={() => {}} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {viewMode === 'calendar' && (
+        <div className="flex-1 overflow-hidden pb-4">
+          <CalendarView 
+            tasks={columns.flatMap(c => c.tasks)} 
+            onTaskClick={async (task) => {
+              setSelectedTask(task);
+              setTaskComments([]);
+              setTaskAttachments([]);
+              setUploadError('');
+              setIsDrawerOpen(true);
+              
+              try {
+                const [cRes, aRes] = await Promise.all([
+                  apiClient.get(`/boards/${boardId}/tasks/${task.id}/comments`),
+                  apiClient.get(`/boards/${boardId}/tasks/${task.id}/attachments`)
+                ]);
+                setTaskComments(cRes.data.comments);
+                setTaskAttachments(aRes.data.attachments);
+              } catch (err) {
+                console.error('Failed to load comments or attachments', err);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {viewMode === 'gantt' && (
+        <div className="flex-1 overflow-hidden pb-4">
+          <GanttView 
+            tasks={columns.flatMap(c => c.tasks)} 
+            onTaskClick={async (task) => {
+              setSelectedTask(task);
+              setTaskComments([]);
+              setTaskAttachments([]);
+              setUploadError('');
+              setIsDrawerOpen(true);
+              
+              try {
+                const [cRes, aRes] = await Promise.all([
+                  apiClient.get(`/boards/${boardId}/tasks/${task.id}/comments`),
+                  apiClient.get(`/boards/${boardId}/tasks/${task.id}/attachments`)
+                ]);
+                setTaskComments(cRes.data.comments);
+                setTaskAttachments(aRes.data.attachments);
+              } catch (err) {
+                console.error('Failed to load comments or attachments', err);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {viewMode === 'analytics' && (
+        <div className="flex-1 overflow-hidden pb-4">
+          <AnalyticsView boardId={boardId} />
+        </div>
+      )}
 
       {/* Task Detail Drawer */}
       <Drawer 
@@ -1104,10 +1230,16 @@ const Board = () => {
               <Badge variant={selectedTask.priority} className="capitalize">
                 {selectedTask.priority} Priority
               </Badge>
+              {selectedTask.startDate && (
+                <div className="flex items-center gap-1.5 text-small text-secondary">
+                  <CalendarIcon className="w-4 h-4" />
+                  <span>Start: {selectedTask.startDate}</span>
+                </div>
+              )}
               {selectedTask.dueDate && (
                 <div className={`flex items-center gap-1.5 text-small ${selectedTask.isOverdue ? 'text-danger-500 font-medium' : 'text-secondary'}`}>
-                  <Calendar className="w-4 h-4" />
-                  <span>Due {selectedTask.dueDate}</span>
+                  <CalendarIcon className="w-4 h-4" />
+                  <span>Due: {selectedTask.dueDate}</span>
                 </div>
               )}
             </div>
@@ -1120,8 +1252,83 @@ const Board = () => {
               </p>
             </div>
 
+            {/* Subtasks Section */}
+            <div className="space-y-3 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <h3 className="text-body-medium font-medium text-primary">Subtasks</h3>
+              </div>
+              <div className="w-full bg-surface-muted rounded-full h-1.5 mb-2">
+                <div 
+                  className="bg-accent-500 h-1.5 rounded-full transition-all duration-300" 
+                  style={{ width: `${selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (selectedTask.subtasks.filter(s => s.isCompleted).length / selectedTask.subtasks.length) * 100 : 0}%` }}
+                ></div>
+              </div>
+              
+              <div className="space-y-1.5">
+                {(selectedTask.subtasks || []).map((subtask, idx) => (
+                  <div key={idx} className="flex items-center gap-2 group">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-border text-accent-600 focus:ring-accent-500 cursor-pointer w-4 h-4"
+                      checked={subtask.isCompleted}
+                      onChange={async (e) => {
+                        const newSubtasks = [...selectedTask.subtasks];
+                        newSubtasks[idx] = { ...subtask, isCompleted: e.target.checked };
+                        setSelectedTask(prev => ({ ...prev, subtasks: newSubtasks }));
+                        
+                        try {
+                          await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id}`, { subtasks: newSubtasks });
+                          fetchTasks(false);
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                    />
+                    <span className={`text-small flex-1 ${subtask.isCompleted ? 'line-through text-tertiary' : 'text-primary'}`}>
+                      {subtask.title}
+                    </span>
+                    <button 
+                      className="opacity-0 group-hover:opacity-100 text-tertiary hover:text-danger-500 transition-opacity p-1"
+                      onClick={async () => {
+                        const newSubtasks = selectedTask.subtasks.filter((_, i) => i !== idx);
+                        setSelectedTask(prev => ({ ...prev, subtasks: newSubtasks }));
+                        try {
+                          await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id}`, { subtasks: newSubtasks });
+                          fetchTasks(false);
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 items-center mt-2">
+                <Input 
+                  placeholder="Add a subtask..." 
+                  className="h-[32px] text-small"
+                  id="new-subtask-input"
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      const newSubtasks = [...(selectedTask.subtasks || []), { title: e.target.value.trim(), isCompleted: false }];
+                      e.target.value = '';
+                      setSelectedTask(prev => ({ ...prev, subtasks: newSubtasks }));
+                      try {
+                        await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id}`, { subtasks: newSubtasks });
+                        fetchTasks(false);
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
             {/* Assignee */}
-            <div className="space-y-2">
+            <div className="space-y-2 pt-4 border-t border-border">
               <h3 className="text-body-medium font-medium text-primary">Assignee</h3>
               {selectedTask.assignee ? (
                 <div className="flex items-center gap-2">
@@ -1296,6 +1503,7 @@ const Board = () => {
                   description: selectedTask.description || '',
                   priority: selectedTask.priority,
                   assignee: selectedTask.assigneeId || '',
+                  startDate: selectedTask.startDate || '',
                   dueDate: selectedTask.dueDate || '',
                   column: selectedTask.columnId
                 });
@@ -1386,14 +1594,25 @@ const Board = () => {
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-small text-primary font-medium">Due Date</label>
-              <Input 
-                type="date"
-                value={newTaskForm.dueDate}
-                onChange={(e) => setNewTaskForm({ ...newTaskForm, dueDate: e.target.value })}
-                disabled={isCreating}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-small text-primary font-medium">Start Date</label>
+                <Input 
+                  type="date"
+                  value={newTaskForm.startDate || ''}
+                  onChange={(e) => setNewTaskForm({ ...newTaskForm, startDate: e.target.value })}
+                  disabled={isCreating}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-small text-primary font-medium">Due Date</label>
+                <Input 
+                  type="date"
+                  value={newTaskForm.dueDate || ''}
+                  onChange={(e) => setNewTaskForm({ ...newTaskForm, dueDate: e.target.value })}
+                  disabled={isCreating}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1476,14 +1695,25 @@ const Board = () => {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-small text-primary font-medium">Due Date</label>
-                <Input 
-                  type="date"
-                  value={editTaskForm.dueDate}
-                  onChange={(e) => setEditTaskForm({ ...editTaskForm, dueDate: e.target.value })}
-                  disabled={isEditingTask}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-small text-primary font-medium">Start Date</label>
+                  <Input 
+                    type="date"
+                    value={editTaskForm.startDate || ''}
+                    onChange={(e) => setEditTaskForm({ ...editTaskForm, startDate: e.target.value })}
+                    disabled={isEditingTask}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-small text-primary font-medium">Due Date</label>
+                  <Input 
+                    type="date"
+                    value={editTaskForm.dueDate || ''}
+                    onChange={(e) => setEditTaskForm({ ...editTaskForm, dueDate: e.target.value })}
+                    disabled={isEditingTask}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1618,32 +1848,42 @@ const Board = () => {
               <Button variant="primary" onClick={handleEditBoard} isLoading={isSavingBoard}>
                 Save Changes
               </Button>
+              <Button variant="outline" onClick={() => setIsAutomationsModalOpen(true)}>
+                Automations
+              </Button>
             </div>
           </div>
         }
       >
         <div className="space-y-4">
+          {boardError && <div className="text-small text-danger-500">{boardError}</div>}
           <div className="space-y-1">
             <label className="text-small text-primary font-medium">Board Name *</label>
             <Input 
               value={editBoardForm.name}
               onChange={(e) => setEditBoardForm({ ...editBoardForm, name: e.target.value })}
-              disabled={isSavingBoard}
             />
           </div>
           <div className="space-y-1">
             <label className="text-small text-primary font-medium">Description</label>
             <textarea
-              className="w-full bg-canvas border border-border rounded-md px-3 py-2 text-body text-primary focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed resize-y min-h-[80px]"
+              className="w-full bg-canvas border border-border rounded-md px-3 py-2 text-body text-primary focus:outline-none focus:border-accent-500 transition-colors resize-y min-h-[80px]"
               value={editBoardForm.description}
               onChange={(e) => setEditBoardForm({ ...editBoardForm, description: e.target.value })}
-              disabled={isSavingBoard}
             />
           </div>
         </div>
       </Modal>
 
-      {/* Global Confirmation Modal */}
+      {/* Automations Modal */}
+      <AutomationsModal 
+        isOpen={isAutomationsModalOpen}
+        onClose={() => setIsAutomationsModalOpen(false)}
+        boardId={boardId}
+        columns={columns}
+      />
+
+      {/* Confirmation Dialog */}
       <Modal
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
@@ -1654,15 +1894,13 @@ const Board = () => {
             <Button variant="ghost" onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={confirmDialog.onConfirm}>
+            <Button variant="primary" className="bg-danger-500 hover:bg-danger-600 text-white border-transparent" onClick={confirmDialog.onConfirm}>
               {confirmDialog.confirmText}
             </Button>
           </>
         }
       >
-        <div className="text-body text-secondary">
-          {confirmDialog.message}
-        </div>
+        <p className="text-body text-secondary">{confirmDialog.message}</p>
       </Modal>
     </div>
   );

@@ -20,15 +20,17 @@ const MyTasks = () => {
       const currentPage = isLoadMore ? page + 1 : 1;
       const res = await apiClient.get(`/users/me/tasks?page=${currentPage}&limit=20`);
       
-      const newTasks = res.data.tasks;
+      const newTasks = res.data?.tasks || res.tasks || [];
+      const pagination = res.data?.pagination || res.pagination || { page: 1, totalPages: 1 };
+
       if (isLoadMore) {
         setTasks(prev => [...prev, ...newTasks]);
       } else {
         setTasks(newTasks);
       }
       
-      setPage(res.data.pagination.page);
-      setHasMore(res.data.pagination.page < res.data.pagination.totalPages);
+      setPage(pagination.page || 1);
+      setHasMore((pagination.page || 1) < (pagination.totalPages || 1));
     } catch (err) {
       setError('Failed to load your tasks.');
     } finally {

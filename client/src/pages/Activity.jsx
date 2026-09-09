@@ -65,11 +65,18 @@ const Activity = () => {
       try {
         setIsLoading(true);
         setError('');
-        const boardId = localStorage.getItem('lastOpenedBoardId');
+        let boardId = localStorage.getItem('lastOpenedBoardId');
         if (!boardId) {
-          setError('Please open a board first to view its activity.');
-          setIsLoading(false);
-          return;
+          const boardsRes = await apiClient.get('/boards');
+          const boardList = boardsRes.data?.boards || boardsRes.boards || [];
+          if (boardList.length > 0) {
+            boardId = boardList[0]._id;
+            localStorage.setItem('lastOpenedBoardId', boardId);
+          } else {
+            setError('No boards found. Create a board to view activity.');
+            setIsLoading(false);
+            return;
+          }
         }
 
         const res = await apiClient.get(`/boards/${boardId}/activity?page=${page}&limit=50`);

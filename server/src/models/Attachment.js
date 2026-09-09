@@ -38,4 +38,9 @@ const attachmentSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Lookup indexes
+attachmentSchema.index({ task: 1 });
+attachmentSchema.index({ board: 1 });
+
 module.exports = mongoose.model('Attachment', attachmentSchema);
+

@@ -11,7 +11,7 @@ const Badge = ({
   
   const variants = {
     neutral: "bg-inset text-primary",
-    unread: "bg-accent-600 text-on-accent rounded-full px-1.5",
+    unread: "bg-black text-white rounded-full px-1.5",
     
     // Priorities
     low: "bg-surface-muted text-secondary", // Slate 100/500 equivalent approx. we'll just use mapped colors if possible, but the spec says Low: bg slate-100, text slate-500

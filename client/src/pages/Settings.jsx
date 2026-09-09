@@ -240,9 +240,12 @@ const Settings = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="justify-end bg-canvas/50">
+            <CardFooter className="justify-between bg-canvas/50 flex-row-reverse">
               <Button variant="primary" onClick={handleUpdatePassword}>
                 Update password
+              </Button>
+              <Button variant="outline" onClick={() => window.location.href = '/app/settings/security'}>
+                Advanced Security (MFA)
               </Button>
             </CardFooter>
           </Card>
