@@ -573,3 +573,130 @@ exports.resetUserPassword = async (req, res, next) => {
   }
 };
 
+/**
+ * PATCH /api/users/me
+ * Update logged-in user profile, avatar, preferences, and notifications settings
+ */
+exports.updateMyProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { message: 'User not found.' } });
+    }
+
+    const { name, email, avatarUrl, preferences, notifications } = req.body;
+
+    if (name && name.trim()) {
+      user.name = name.trim();
+    }
+
+    if (email && email.trim() && email.trim().toLowerCase() !== user.email) {
+      const newEmail = email.trim().toLowerCase();
+      const existing = await User.findOne({ email: newEmail, _id: { $ne: user._id } });
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'An account with this email address already exists.' }
+        });
+      }
+      user.email = newEmail;
+    }
+
+    if (avatarUrl !== undefined) {
+      user.avatarUrl = avatarUrl;
+    }
+
+    if (preferences && typeof preferences === 'object') {
+      user.preferences = {
+        ...user.preferences,
+        ...preferences
+      };
+    }
+
+    if (notifications && typeof notifications === 'object') {
+      user.notifications = {
+        ...user.notifications,
+        ...notifications
+      };
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user,
+        message: 'Profile updated successfully.'
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/users/me/change-password
+ * Change logged-in user password
+ */
+exports.changeMyPassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'New password must be at least 6 characters long.' }
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { message: 'User not found.' } });
+    }
+
+    // If user has a passwordHash set, verify currentPassword
+    if (user.passwordHash) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'Current password is required.' }
+        });
+      }
+      const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'Incorrect current password.' }
+        });
+      }
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: { message: 'Password updated successfully.' }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/users/me/revoke-sessions
+ * Revoke other sessions for current user
+ */
+exports.revokeMyOtherSessions = async (req, res, next) => {
+  try {
+    // Revoke sessions except current token if applicable, or delete all Sessions for user
+    await Session.deleteMany({ user: req.user._id });
+    res.status(200).json({
+      success: true,
+      data: { message: 'Logged out of all other devices successfully.' }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+

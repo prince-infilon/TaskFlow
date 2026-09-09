@@ -48,6 +48,27 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null
+    },
+    preferences: {
+      theme: {
+        type: String,
+        enum: ['system', 'light', 'dark'],
+        default: 'system'
+      }
+    },
+    notifications: {
+      emailSummary: {
+        type: Boolean,
+        default: true
+      },
+      taskAssigned: {
+        type: Boolean,
+        default: true
+      },
+      comments: {
+        type: Boolean,
+        default: false
+      }
     }
   },
   {

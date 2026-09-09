@@ -222,12 +222,21 @@ export const AuthProvider = ({ children }) => {
     window.location.reload();
   };
 
+  const updateUser = (updatedUserData) => {
+    setUser(prev => {
+      const newUser = { ...prev, ...updatedUserData };
+      localStorage.setItem('taskflow_user', JSON.stringify(newUser));
+      return newUser;
+    });
+  };
+
   const value = {
     user,
     token,
     organizations,
     activeOrganization,
     switchOrganization,
+    updateUser,
     isAuthenticated: !!user,
     isLoading,
     login,

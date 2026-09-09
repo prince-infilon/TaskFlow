@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
-const { getBoardActivity } = require('../controllers/activityController');
+const { getBoardActivity, getGlobalActivity } = require('../controllers/activityController');
+const { authenticate } = require('../middleware/authMiddleware');
 
-// Mounted at /api/boards/:boardId/activity
-// Protected by authorizeBoard in boardRoutes.js
+router.use(authenticate);
 
-router.get('/', getBoardActivity);
+router.get('/', (req, res, next) => {
+  if (req.params.boardId) {
+    return getBoardActivity(req, res, next);
+  }
+  return getGlobalActivity(req, res, next);
+});
 
 module.exports = router;

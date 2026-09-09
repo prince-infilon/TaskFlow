@@ -29,7 +29,6 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
     ...(user?.globalRole === 'admin' ? [{ name: 'User Management', path: '/app/users', icon: Users, end: true }] : []),
     ...(user?.globalRole === 'manager' ? [{ name: 'My Team', path: '/app/team', icon: Users, end: true }] : []),
     { name: 'Workspace', path: '/app/settings/organization', icon: Settings, end: true },
-    { name: 'Billing', path: '/app/settings/billing', icon: CreditCard, end: true },
     { name: 'Settings', path: '/app/settings', icon: Settings, end: true },
   ];
 

@@ -5,15 +5,23 @@ import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../compone
 import Toast, { ToastContainer } from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import apiClient from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 
 const SecuritySettings = () => {
+  const { user, updateUser } = useAuth();
   const [mfaSetup, setMfaSetup] = useState(null);
   const [mfaCode, setMfaCode] = useState('');
   const [backupCodes, setBackupCodes] = useState([]);
-  const [isMfaEnabled, setIsMfaEnabled] = useState(false); // We should get this from user context, but let's assume false or fetch it
+  const [isMfaEnabled, setIsMfaEnabled] = useState(user?.isTwoFactorEnabled || false);
   const [toasts, setToasts] = useState([]);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
+
+  useEffect(() => {
+    if (user) {
+      setIsMfaEnabled(user.isTwoFactorEnabled || false);
+    }
+  }, [user]);
 
   const showToast = (message, type = 'success') => {
     const id = Date.now().toString();
@@ -39,6 +47,7 @@ const SecuritySettings = () => {
       const res = await apiClient.post('/auth/mfa/verify', { token: mfaCode });
       setBackupCodes(res.data.data.backupCodes);
       setIsMfaEnabled(true);
+      if (updateUser) updateUser({ isTwoFactorEnabled: true });
       setMfaSetup(null);
       showToast('MFA enabled successfully!');
     } catch (error) {
@@ -58,6 +67,7 @@ const SecuritySettings = () => {
         try {
           await apiClient.post('/auth/mfa/disable');
           setIsMfaEnabled(false);
+          if (updateUser) updateUser({ isTwoFactorEnabled: false });
           setBackupCodes([]);
           showToast('MFA disabled successfully.');
         } catch (error) {
@@ -70,10 +80,12 @@ const SecuritySettings = () => {
   };
 
   const handleLogoutOtherDevices = async () => {
-    // Actually, we could just rotate the token to invalidate other sessions.
-    // Wait, the API for invalidating all sessions hasn't been explicitly created yet, 
-    // but password change typically does it. Let's add a quick endpoint or just show a tech debt toast.
-    showToast('Logout of other devices not fully implemented in frontend yet.', 'danger');
+    try {
+      await apiClient.post('/users/me/revoke-sessions');
+      showToast('Logged out of all other active sessions successfully.');
+    } catch (error) {
+      showToast('Failed to revoke sessions.', 'danger');
+    }
   };
 
   return (

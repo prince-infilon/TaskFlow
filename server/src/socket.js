@@ -82,6 +82,9 @@ const initializeSocket = (server) => {
   };
 
   io.on('connection', (socket) => {
+    if (socket.user && socket.user._id) {
+      socket.join(`user:${socket.user._id.toString()}`);
+    }
     
     // Join board room
     socket.on('join_board', async (boardId) => {
@@ -177,12 +180,22 @@ const getIo = () => {
   return io;
 };
 
-// Exporting utility wrapper for broadcasting API changes
+// Exporting utility wrappers for broadcasting API changes & notifications
 const broadcastBoardEvent = (boardId, eventName, payload) => {
   try {
     getIo().to(`board:${boardId}`).emit(eventName, payload);
   } catch (err) {
     console.error('Socket broadcast error:', err);
+  }
+};
+
+const sendUserNotification = (recipientId, eventName, payload) => {
+  try {
+    if (recipientId) {
+      getIo().to(`user:${recipientId.toString()}`).emit(eventName, payload);
+    }
+  } catch (err) {
+    console.error('Socket user notification error:', err);
   }
 };
 
@@ -194,5 +207,5 @@ const broadcastUserEvent = (eventName, payload) => {
   }
 };
 
-module.exports = { initializeSocket, getIo, broadcastBoardEvent, broadcastUserEvent };
+module.exports = { initializeSocket, getIo, broadcastBoardEvent, sendUserNotification, broadcastUserEvent };
 

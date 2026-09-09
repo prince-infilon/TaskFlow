@@ -58,6 +58,7 @@ router.use('/:boardId/activity', authorizeBoard(), activityRoutes);
 // Automations
 router.get('/:boardId/automations', authorizeBoard(), automationController.getAutomations);
 router.post('/:boardId/automations', authorizeBoard(), automationController.createAutomation);
+router.patch('/:boardId/automations/:automationId', authorizeBoard(), automationController.toggleAutomation);
 router.delete('/:boardId/automations/:automationId', authorizeBoard(), automationController.deleteAutomation);
 
 // Analytics

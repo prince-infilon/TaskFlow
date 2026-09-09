@@ -286,7 +286,9 @@ exports.getBoardAnalytics = async (req, res, next) => {
   try {
     const { boardId } = req.params;
     
-    const tasks = await Task.find({ board: boardId }).populate('column', 'name');
+    const tasks = await Task.find({ board: boardId })
+      .populate('column', 'name')
+      .populate('assignee', 'name email avatar');
     const columns = await Column.find({ board: boardId }).sort('position');
 
     const totalTasks = tasks.length;
@@ -303,6 +305,12 @@ exports.getBoardAnalytics = async (req, res, next) => {
       medium: tasks.filter(t => t.priority === 'medium').length,
       high: tasks.filter(t => t.priority === 'high').length
     };
+
+    const tasksByAssignee = {};
+    tasks.forEach(t => {
+      const name = t.assignee ? t.assignee.name : 'Unassigned';
+      tasksByAssignee[name] = (tasksByAssignee[name] || 0) + 1;
+    });
 
     const overdueTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.column && !t.column.name.toLowerCase().includes('done')).length;
 
@@ -323,6 +331,7 @@ exports.getBoardAnalytics = async (req, res, next) => {
         completionRate,
         tasksByColumn,
         tasksByPriority,
+        tasksByAssignee,
         overdueTasks,
         recentActivityCount: recentActivity.length
       }

@@ -50,6 +50,37 @@ exports.uploadAttachment = async (req, res, next) => {
 
     const populatedAttachment = await Attachment.findById(attachment._id).populate('uploadedBy', 'name email avatarUrl');
     
+    // Dispatch real-time notification for attachment upload
+    try {
+      const taskDoc = await Task.findById(taskId);
+      const Board = require('../models/Board');
+      const boardDoc = await Board.findById(boardId);
+      const { notifyMultipleUsers } = require('../services/notificationService');
+
+      const recipients = [];
+      if (taskDoc && taskDoc.assignee && taskDoc.assignee.toString() !== req.user._id.toString()) {
+        recipients.push(taskDoc.assignee);
+      }
+      if (boardDoc && boardDoc.owner && boardDoc.owner.toString() !== req.user._id.toString()) {
+        recipients.push(boardDoc.owner);
+      }
+
+      if (recipients.length > 0) {
+        await notifyMultipleUsers({
+          recipientIds: recipients,
+          senderId: req.user._id,
+          boardId,
+          taskId,
+          type: 'attachment_added',
+          title: 'Attachment Added',
+          message: `${req.user.name} uploaded "${attachment.originalFilename}" on "${taskDoc?.title || 'a task'}"`,
+          targetSection: 'attachments'
+        });
+      }
+    } catch (notifErr) {
+      console.error('Failed to send attachment notification:', notifErr);
+    }
+
     broadcastBoardEvent(boardId, 'attachment_uploaded', { taskId, attachment: populatedAttachment });
     res.status(201).json({ success: true, data: { attachment: populatedAttachment } });
   } catch (error) {

@@ -1,13 +1,40 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, Layers, Clock, AlertCircle, CheckCircle2, CircleDashed } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 
-const GanttView = ({ tasks, onTaskClick }) => {
+const STATUS_CONFIG = {
+  done: { label: 'Done', bg: 'bg-emerald-500', text: 'text-emerald-500', lightBg: 'bg-emerald-50', border: 'border-emerald-200', icon: CheckCircle2 },
+  in_progress: { label: 'In Progress', bg: 'bg-indigo-500', text: 'text-indigo-500', lightBg: 'bg-indigo-50', border: 'border-indigo-200', icon: Clock },
+  in_review: { label: 'In Review', bg: 'bg-amber-500', text: 'text-amber-500', lightBg: 'bg-amber-50', border: 'border-amber-200', icon: CircleDashed },
+  todo: { label: 'To Do', bg: 'bg-blue-500', text: 'text-blue-500', lightBg: 'bg-blue-50', border: 'border-blue-200', icon: CircleDashed },
+};
+
+const PRIORITY_CONFIG = {
+  high: { label: 'High', dot: 'bg-red-500', border: 'border-red-400' },
+  medium: { label: 'Medium', dot: 'bg-amber-500', border: 'border-amber-400' },
+  low: { label: 'Low', dot: 'bg-slate-400', border: 'border-slate-300' },
+};
+
+const GanttView = ({ tasks = [], onTaskClick }) => {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 5);
+    d.setDate(d.getDate() - 4); // Show a few days back
     return d;
   });
+
+  const [daysToView, setDaysToView] = useState(30);
+  const leftPaneRef = useRef(null);
+  const rightPaneRef = useRef(null);
+
+  // Synchronize vertical scrolling between task list and timeline grid
+  const handleScroll = (e) => {
+    const target = e.target;
+    if (target === leftPaneRef.current && rightPaneRef.current) {
+      rightPaneRef.current.scrollTop = target.scrollTop;
+    } else if (target === rightPaneRef.current && leftPaneRef.current) {
+      leftPaneRef.current.scrollTop = target.scrollTop;
+    }
+  };
 
   const shiftDays = (days) => {
     const newDate = new Date(startDate);
@@ -15,8 +42,13 @@ const GanttView = ({ tasks, onTaskClick }) => {
     setStartDate(newDate);
   };
 
-  const daysToView = 30;
+  const resetToToday = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 4);
+    setStartDate(d);
+  };
 
+  // Generate date array
   const dates = useMemo(() => {
     const arr = [];
     for (let i = 0; i < daysToView; i++) {
@@ -25,143 +57,306 @@ const GanttView = ({ tasks, onTaskClick }) => {
       arr.push(d);
     }
     return arr;
-  }, [startDate]);
+  }, [startDate, daysToView]);
 
-  const sortedTasks = useMemo(() => {
-    // Only tasks with at least a start or due date
-    return [...tasks].filter(t => t.startDate || t.dueDate).sort((a, b) => {
-      const aStart = a.startDate || a.dueDate;
-      const bStart = b.startDate || b.dueDate;
-      return new Date(aStart).getTime() - new Date(bStart).getTime();
+  // Group dates by Month for top header bar
+  const monthGroups = useMemo(() => {
+    const groups = [];
+    let currentMonth = null;
+    let count = 0;
+
+    dates.forEach((d) => {
+      const monthYear = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (monthYear !== currentMonth) {
+        if (currentMonth) {
+          groups.push({ month: currentMonth, count });
+        }
+        currentMonth = monthYear;
+        count = 1;
+      } else {
+        count++;
+      }
     });
+
+    if (currentMonth) {
+      groups.push({ month: currentMonth, count });
+    }
+
+    return groups;
+  }, [dates]);
+
+  // Process and sort tasks
+  const processedTasks = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return tasks.map(task => {
+      let startStr = task.startDate;
+      let endStr = task.dueDate;
+
+      // Fallbacks if dates are missing so every task is represented
+      if (!startStr && !endStr) {
+        startStr = task.createdAt ? new Date(task.createdAt).toISOString().split('T')[0] : todayStr;
+        endStr = startStr;
+      } else if (!startStr) {
+        startStr = endStr;
+      } else if (!endStr) {
+        endStr = startStr;
+      }
+
+      const tStart = new Date(startStr);
+      const tEnd = new Date(endStr);
+      tStart.setHours(0, 0, 0, 0);
+      tEnd.setHours(0, 0, 0, 0);
+
+      // Ensure start is before end
+      if (tEnd < tStart) {
+        tEnd.setTime(tStart.getTime());
+      }
+
+      return {
+        ...task,
+        effectiveStart: tStart,
+        effectiveEnd: tEnd,
+        startStr,
+        endStr
+      };
+    }).sort((a, b) => a.effectiveStart.getTime() - b.effectiveStart.getTime());
   }, [tasks]);
 
+  const gridStart = useMemo(() => {
+    const d = new Date(startDate);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [startDate]);
+
+  const cellWidth = 48; // px per day
+
   return (
-    <div className="flex flex-col h-full bg-surface border border-border rounded-lg overflow-hidden">
-      {/* Header controls */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <h2 className="text-body-medium font-bold text-primary">
-          Timeline
-        </h2>
-        <div className="flex items-center gap-2">
-          <IconButton variant="ghost" onClick={() => shiftDays(-7)}>
-            <ChevronLeft className="w-5 h-5" />
-          </IconButton>
-          <button 
-            className="text-small text-secondary hover:text-primary font-medium px-2"
-            onClick={() => {
-              const d = new Date();
-              d.setDate(d.getDate() - 5);
-              setStartDate(d);
-            }}
-          >
-            Today
-          </button>
-          <IconButton variant="ghost" onClick={() => shiftDays(7)}>
-            <ChevronRight className="w-5 h-5" />
-          </IconButton>
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden text-slate-800 dark:text-slate-100">
+      {/* Top Header Bar */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+            <Layers className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Gantt Timeline</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Showing {processedTasks.length} tasks across {daysToView} days
+            </p>
+          </div>
+        </div>
+
+        {/* Timeline controls */}
+        <div className="flex items-center gap-3">
+          {/* Zoom options */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
+            {[14, 30, 60].map(days => (
+              <button
+                key={days}
+                onClick={() => setDaysToView(days)}
+                className={`px-2.5 py-1 rounded-md transition-all font-medium ${
+                  daysToView === days
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                {days}D
+              </button>
+            ))}
+          </div>
+
+          <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800" />
+
+          {/* Date shift controls */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => shiftDays(-7)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+              title="Previous 7 Days"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={resetToToday}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              Today
+            </button>
+
+            <button
+              onClick={() => shiftDays(7)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+              title="Next 7 Days"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto flex">
-        {/* Left pane: Task list */}
-        <div className="w-[250px] shrink-0 border-r border-border bg-surface flex flex-col">
-          <div className="h-10 border-b border-border flex items-center px-4 bg-surface-muted shrink-0">
-            <span className="text-small font-medium text-secondary">Task</span>
+      {/* Main Body */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Pane: Task List Sidebar */}
+        <div className="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 z-10 shadow-xs">
+          {/* Header height synced to timeline header (h-[65px]) */}
+          <div className="h-[65px] border-b border-slate-200 dark:border-slate-800 flex items-center px-4 bg-slate-50 dark:bg-slate-900/80 shrink-0 font-semibold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span>Task Title ({processedTasks.length})</span>
           </div>
-          <div className="flex-1">
-            {sortedTasks.map(task => (
-              <div 
-                key={task.id} 
-                className="h-12 border-b border-border flex items-center px-4 hover:bg-surface-muted cursor-pointer truncate text-small text-primary"
-                onClick={() => onTaskClick(task)}
-                title={task.title}
-              >
-                {task.title}
+
+          <div 
+            ref={leftPaneRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 no-scrollbar"
+          >
+            {processedTasks.map(task => {
+              const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
+              const prioCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.low;
+
+              return (
+                <div
+                  key={task.id || task._id}
+                  onClick={() => onTaskClick && onTaskClick(task)}
+                  className="h-12 px-4 flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors group shrink-0"
+                  title={task.title}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${prioCfg.dot}`} />
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                    {task.title}
+                  </span>
+                </div>
+              );
+            })}
+
+            {processedTasks.length === 0 && (
+              <div className="p-6 text-center text-xs text-slate-400">
+                No tasks available
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Right pane: Timeline Grid */}
-        <div className="flex-1 overflow-x-auto">
+        {/* Right Pane: Timeline Chart */}
+        <div 
+          ref={rightPaneRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-auto flex flex-col bg-slate-50/30 dark:bg-slate-950/20"
+        >
           <div className="inline-flex flex-col min-w-full">
-            {/* Timeline Header (Dates) */}
-            <div className="flex h-10 border-b border-border bg-surface-muted shrink-0">
-              {dates.map((date, i) => {
-                const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
-                return (
-                  <div 
-                    key={i} 
-                    className={`w-12 shrink-0 border-r border-border flex flex-col items-center justify-center ${isToday ? 'bg-accent-50' : ''}`}
+            {/* Header: Months & Days */}
+            <div className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
+              {/* Row 1: Month Groups */}
+              <div className="flex border-b border-slate-200/80 dark:border-slate-800/80 h-7 text-xs font-bold text-slate-600 dark:text-slate-400">
+                {monthGroups.map((group, i) => (
+                  <div
+                    key={i}
+                    style={{ width: `${group.count * cellWidth}px` }}
+                    className="shrink-0 px-3 flex items-center border-r border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/50 truncate text-[11px]"
                   >
-                    <span className={`text-[10px] ${isToday ? 'text-accent-600 font-bold' : 'text-tertiary'}`}>
-                      {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                    </span>
-                    <span className={`text-[11px] font-medium ${isToday ? 'text-accent-700' : 'text-secondary'}`}>
-                      {date.getDate()}
-                    </span>
+                    {group.month}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              {/* Row 2: Day Columns */}
+              <div className="flex h-9 text-[11px]">
+                {dates.map((date, i) => {
+                  const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+                  return (
+                    <div
+                      key={i}
+                      style={{ width: `${cellWidth}px` }}
+                      className={`shrink-0 border-r border-slate-200 dark:border-slate-800/80 flex flex-col items-center justify-center ${
+                        isToday
+                          ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold'
+                          : isWeekend
+                          ? 'bg-slate-100/40 dark:bg-slate-800/30 text-slate-400'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      <span className="text-[10px] font-medium leading-none">
+                        {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                      </span>
+                      <span className={`text-xs mt-0.5 ${isToday ? 'bg-indigo-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]' : ''}`}>
+                        {date.getDate()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Timeline Body (Bars) */}
-            <div className="flex-1 relative">
-              {/* Vertical Grid Lines */}
+            {/* Timeline Task Rows & Bars */}
+            <div className="relative flex-1">
+              {/* Background Column Lines & Today Overlay */}
               <div className="absolute inset-0 flex pointer-events-none">
                 {dates.map((date, i) => {
                   const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
                   return (
-                    <div 
-                      key={i} 
-                      className={`w-12 shrink-0 border-r border-border h-full ${isToday ? 'bg-accent-50/30' : ''}`} 
+                    <div
+                      key={i}
+                      style={{ width: `${cellWidth}px` }}
+                      className={`shrink-0 border-r border-slate-200/60 dark:border-slate-800/40 h-full ${
+                        isToday
+                          ? 'bg-indigo-500/5 dark:bg-indigo-500/10 border-r-2 border-r-indigo-500/50'
+                          : isWeekend
+                          ? 'bg-slate-100/30 dark:bg-slate-800/20'
+                          : ''
+                      }`}
                     />
                   );
                 })}
               </div>
 
               {/* Task Bars */}
-              {sortedTasks.map((task, rowIndex) => {
-                const tStartStr = task.startDate || task.dueDate;
-                const tEndStr = task.dueDate || task.startDate;
-                
-                if (!tStartStr || !tEndStr) {
-                  return <div key={task.id} className="h-12 border-b border-border" />;
-                }
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/60 relative z-10">
+                {processedTasks.map((task) => {
+                  const startDiff = Math.floor((task.effectiveStart - gridStart) / (1000 * 60 * 60 * 24));
+                  const duration = Math.max(1, Math.floor((task.effectiveEnd - task.effectiveStart) / (1000 * 60 * 60 * 24)) + 1);
 
-                const tStart = new Date(tStartStr);
-                const tEnd = new Date(tEndStr);
-                
-                // Zero out time for date diffing
-                tStart.setHours(0,0,0,0);
-                tEnd.setHours(0,0,0,0);
-                
-                const gridStart = new Date(startDate);
-                gridStart.setHours(0,0,0,0);
+                  // Calculate pixel left & width
+                  const leftPx = startDiff * cellWidth;
+                  const widthPx = duration * cellWidth;
 
-                const startDiff = Math.floor((tStart - gridStart) / (1000 * 60 * 60 * 24));
-                const length = Math.max(1, Math.floor((tEnd - tStart) / (1000 * 60 * 60 * 24)) + 1);
+                  const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
+                  const prioCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.low;
 
-                // Check if task is visible
-                const isVisible = startDiff + length > 0 && startDiff < daysToView;
+                  const isVisible = startDiff + duration > 0 && startDiff < daysToView;
 
-                return (
-                  <div key={task.id} className="h-12 border-b border-border relative flex items-center">
-                    {isVisible && (
-                      <div 
-                        className="absolute h-6 bg-accent-500 rounded-sm shadow-sm opacity-90 cursor-pointer hover:opacity-100 hover:bg-accent-600 transition-colors z-10"
-                        style={{
-                          left: `${Math.max(0, startDiff * 48)}px`, // 48px is w-12
-                          width: `${Math.min((daysToView - Math.max(0, startDiff)) * 48, length * 48 - (startDiff < 0 ? Math.abs(startDiff)*48 : 0))}px`
-                        }}
-                        onClick={() => onTaskClick(task)}
-                        title={`${task.title} (${tStartStr} to ${tEndStr})`}
-                      />
-                    )}
-                  </div>
-                );
-              })}
+                  return (
+                    <div key={task.id || task._id} className="h-12 relative flex items-center">
+                      {isVisible && (
+                        <div
+                          onClick={() => onTaskClick && onTaskClick(task)}
+                          style={{
+                            left: `${Math.max(4, leftPx + 2)}px`,
+                            width: `${Math.max(36, widthPx - 4)}px`,
+                          }}
+                          className={`absolute h-7 rounded-lg px-2.5 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md ${statusCfg.bg} text-white shadow-xs z-10 group overflow-hidden`}
+                          title={`${task.title} | ${statusCfg.label} | ${task.startStr} -> ${task.endStr}`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                            <span className="text-xs font-semibold truncate leading-tight">
+                              {task.title}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 text-[10px] font-medium opacity-90">
+                            <span className="hidden sm:inline bg-black/20 px-1.5 py-0.5 rounded text-[9px] font-mono">
+                              {duration}d
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -171,3 +366,4 @@ const GanttView = ({ tasks, onTaskClick }) => {
 };
 
 export default GanttView;
+

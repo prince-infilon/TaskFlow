@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, Settings, Plus, Calendar as CalendarIcon, Paperclip, MessageSquare, Trash2, Download, LayoutDashboard, CalendarDays, BarChartHorizontal, Zap, PieChart } from 'lucide-react';
 import { 
   DndContext, 
@@ -322,6 +322,54 @@ const Board = () => {
     }
   };
 
+  const [searchParams] = useSearchParams();
+  const urlTaskId = searchParams.get('taskId');
+  const urlSection = searchParams.get('section');
+
+  useEffect(() => {
+    if (urlTaskId && isBoardLoaded) {
+      const openTaskFromUrl = async () => {
+        try {
+          const res = await apiClient.get(`/boards/${boardId}/tasks/${urlTaskId}`);
+          const taskObj = res.data?.data?.task || res.data?.task;
+          if (taskObj) {
+            setSelectedTask({
+              id: taskObj._id,
+              title: taskObj.title,
+              description: taskObj.description,
+              priority: taskObj.priority,
+              startDate: taskObj.startDate,
+              dueDate: taskObj.dueDate,
+              assignee: taskObj.assignee?.name || null,
+              subtasks: taskObj.subtasks || []
+            });
+            setIsDrawerOpen(true);
+            
+            const [cRes, aRes] = await Promise.all([
+              apiClient.get(`/boards/${boardId}/tasks/${urlTaskId}/comments`),
+              apiClient.get(`/boards/${boardId}/tasks/${urlTaskId}/attachments`)
+            ]);
+            setTaskComments(cRes.data?.data?.comments || cRes.data?.comments || []);
+            setTaskAttachments(aRes.data?.data?.attachments || aRes.data?.attachments || []);
+
+            setTimeout(() => {
+              if (urlSection === 'comments') {
+                const el = document.getElementById('drawer-comments-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              } else if (urlSection === 'attachments') {
+                const el = document.getElementById('drawer-attachments-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 400);
+          }
+        } catch (err) {
+          console.error('Failed to open task from URL params:', err);
+        }
+      };
+      openTaskFromUrl();
+    }
+  }, [urlTaskId, urlSection, isBoardLoaded, boardId]);
+
   const fetchTasks = async (isLoadMore = false) => {
     if (!isBoardLoaded) return;
     
@@ -542,41 +590,70 @@ const Board = () => {
       const handleTaskMoved = (data) => {
         if (!data || !data.task) return;
         const targetTask = data.task;
-        const targetTaskId = targetTask._id || targetTask.id;
-        const taskAssigneeId = targetTask.assignee?._id?.toString() || targetTask.assignee?.toString();
+        const taskId = (targetTask._id || targetTask.id)?.toString();
+        if (!taskId) return;
+
+        const taskAssigneeId = targetTask.assignee?._id?.toString() || targetTask.assignee?.toString() || targetTask.assigneeId?.toString();
 
         if (isMember && taskAssigneeId !== user?._id?.toString()) {
           setColumns(prev => prev.map(col => ({
             ...col,
-            tasks: col.tasks.filter(t => t.id !== targetTaskId)
+            tasks: col.tasks.filter(t => (t.id || t._id)?.toString() !== taskId)
           })));
           return;
         }
 
-        const targetColId = (targetTask.column && typeof targetTask.column === 'object') ? targetTask.column._id?.toString() : (targetTask.column || targetTask.columnId)?.toString();
+        const targetColId = (targetTask.column && typeof targetTask.column === 'object')
+          ? targetTask.column._id?.toString()
+          : (targetTask.column || targetTask.columnId)?.toString();
 
-        setColumns(prev => {
-          let movedItem = null;
-          const cleanedCols = prev.map(col => {
-            const match = col.tasks.find(t => t.id === targetTaskId);
-            if (match) movedItem = match;
-            return { ...col, tasks: col.tasks.filter(t => t.id !== targetTaskId) };
+        setColumns(prevCols => {
+          const currentCol = prevCols.find(col => col.tasks.some(t => (t.id || t._id)?.toString() === taskId));
+          let existingTaskObj = null;
+
+          const cleanedCols = prevCols.map(col => {
+            const match = col.tasks.find(t => (t.id || t._id)?.toString() === taskId);
+            if (match) existingTaskObj = match;
+            return {
+              ...col,
+              tasks: col.tasks.filter(t => (t.id || t._id)?.toString() !== taskId)
+            };
           });
 
-          if (!movedItem) {
-            return prev;
-          }
-
-          const updatedItem = {
-            ...movedItem,
+          const itemToInsert = existingTaskObj ? {
+            ...existingTaskObj,
             columnId: targetColId
+          } : {
+            id: taskId,
+            title: targetTask.title,
+            description: targetTask.description,
+            priority: targetTask.priority,
+            startDate: targetTask.startDate || '',
+            dueDate: targetTask.dueDate || '',
+            subtasks: targetTask.subtasks || [],
+            attachments: targetTask.attachments ? (Array.isArray(targetTask.attachments) ? targetTask.attachments.length : targetTask.attachments) : 0,
+            comments: targetTask.comments ? (Array.isArray(targetTask.comments) ? targetTask.comments.length : targetTask.comments) : 0,
+            assignee: targetTask.assignee?.name || (typeof targetTask.assignee === 'string' ? targetTask.assignee : null),
+            assigneeId: targetTask.assignee?._id || targetTask.assigneeId || null,
+            columnId: targetColId,
+            isOverdue: false
           };
+
+          if (currentCol && currentCol.id?.toString() === targetColId) {
+            const currentIdx = currentCol.tasks.findIndex(t => (t.id || t._id)?.toString() === taskId);
+            const targetPos = (typeof targetTask.position === 'number' && targetTask.position >= 0) ? targetTask.position : currentIdx;
+            if (currentIdx === targetPos) {
+              return prevCols;
+            }
+          }
 
           return cleanedCols.map(col => {
             if (col.id?.toString() === targetColId) {
               const newTasks = [...col.tasks];
-              const pos = typeof targetTask.position === 'number' ? targetTask.position : newTasks.length;
-              newTasks.splice(pos, 0, updatedItem);
+              const pos = (typeof targetTask.position === 'number' && targetTask.position >= 0)
+                ? Math.min(targetTask.position, newTasks.length)
+                : newTasks.length;
+              newTasks.splice(pos, 0, itemToInsert);
               return { ...col, tasks: newTasks };
             }
             return col;
@@ -850,21 +927,19 @@ const Board = () => {
     const { active, over } = event;
     if (!over) return;
     
-    // UI state was already updated optimistically in onDragOver.
-    // We just need to persist the new column and position.
-    const targetCol = columns.find(col => col.tasks.some(t => t.id === active.id));
+    const activeId = active.id?.toString();
+    const targetCol = columns.find(col => col.tasks.some(t => (t.id || t._id)?.toString() === activeId));
     if (!targetCol) return;
     
-    const targetTaskIndex = targetCol.tasks.findIndex(t => t.id === active.id);
+    const targetTaskIndex = targetCol.tasks.findIndex(t => (t.id || t._id)?.toString() === activeId);
     
     try {
-      await apiClient.patch(`/boards/${boardId}/tasks/${active.id}/move`, {
+      await apiClient.patch(`/boards/${boardId}/tasks/${activeId}/move`, {
         column: targetCol.id,
-        position: targetTaskIndex
+        position: targetTaskIndex >= 0 ? targetTaskIndex : 0
       });
     } catch (err) {
       console.error('Failed to move task:', err);
-      // Revert state by fetching from server only if it fails
       fetchTasks(false);
     }
   };
@@ -1641,7 +1716,7 @@ const Board = () => {
             </div>
 
             {/* Attachments Section */}
-            <div className="space-y-3 pt-4 border-t border-border">
+            <div id="drawer-attachments-section" className="space-y-3 pt-4 border-t border-border">
               <div className="flex items-center justify-between">
                 <h3 className="text-body-medium font-medium text-primary">Attachments</h3>
                 <div>
@@ -1707,7 +1782,7 @@ const Board = () => {
             </div>
 
             {/* Comments Section */}
-            <div className="space-y-4 pt-4 border-t border-border">
+            <div id="drawer-comments-section" className="space-y-4 pt-4 border-t border-border">
               <h3 className="text-body-medium font-medium text-primary">Comments</h3>
               
               {/* Comment Input */}
@@ -2009,9 +2084,11 @@ const Board = () => {
         size="sm"
         footer={
           membersView === 'list' ? (
-            <Button variant="primary" onClick={() => setMembersView('invite')}>
-              Invite Member
-            </Button>
+            !isMember ? (
+              <Button variant="primary" onClick={() => setMembersView('invite')}>
+                Invite Member
+              </Button>
+            ) : null
           ) : (
             <>
               <Button variant="ghost" onClick={() => setMembersView('list')} disabled={isInviting}>

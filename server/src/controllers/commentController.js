@@ -63,6 +63,37 @@ exports.createComment = async (req, res, next) => {
 
     const populatedComment = await Comment.findById(comment._id).populate('author', 'name email avatarUrl');
     
+    // Dispatch real-time notification to relevant task assignee / board owner
+    try {
+      const taskDoc = await Task.findById(taskId);
+      const Board = require('../models/Board');
+      const boardDoc = await Board.findById(boardId);
+      const { notifyUser, notifyMultipleUsers } = require('../services/notificationService');
+
+      const recipients = [];
+      if (taskDoc && taskDoc.assignee && taskDoc.assignee.toString() !== req.user._id.toString()) {
+        recipients.push(taskDoc.assignee);
+      }
+      if (boardDoc && boardDoc.owner && boardDoc.owner.toString() !== req.user._id.toString()) {
+        recipients.push(boardDoc.owner);
+      }
+
+      if (recipients.length > 0) {
+        await notifyMultipleUsers({
+          recipientIds: recipients,
+          senderId: req.user._id,
+          boardId,
+          taskId,
+          type: 'comment_added',
+          title: 'New Comment',
+          message: `${req.user.name} commented on "${taskDoc?.title || 'a task'}"`,
+          targetSection: 'comments'
+        });
+      }
+    } catch (notifErr) {
+      console.error('Failed to send comment notification:', notifErr);
+    }
+
     broadcastBoardEvent(boardId, 'comment_created', { taskId, comment: populatedComment });
     res.status(201).json({ success: true, data: { comment: populatedComment } });
   } catch (error) {

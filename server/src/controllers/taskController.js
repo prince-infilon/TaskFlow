@@ -167,6 +167,25 @@ exports.createTask = async (req, res, next) => {
     const populatedTask = await Task.findById(task._id).populate('assignee', 'name email avatarUrl');
     broadcastBoardEvent(boardId, 'task_created', { task: populatedTask });
 
+    // Send real-time notification if task was assigned to someone else
+    if (assignee && assignee.toString() !== req.user._id.toString()) {
+      try {
+        const { notifyUser } = require('../services/notificationService');
+        await notifyUser({
+          recipientId: assignee,
+          senderId: req.user._id,
+          boardId,
+          taskId: task._id,
+          type: 'task_assigned',
+          title: 'Task Assigned',
+          message: `${req.user.name} assigned you to task "${task.title}"`,
+          targetSection: 'details'
+        });
+      } catch (notifErr) {
+        console.error('Task assignment notification error:', notifErr);
+      }
+    }
+
     // Trigger automations without blocking
     evaluateAutomations('task_created', task, { userId: req.user._id });
 
@@ -266,6 +285,24 @@ exports.updateTask = async (req, res, next) => {
         entityId: task._id,
         metadata: { taskTitle: task.title, assigneeId: newAssignee }
       });
+
+      if (newAssignee !== req.user._id.toString()) {
+        try {
+          const { notifyUser } = require('../services/notificationService');
+          await notifyUser({
+            recipientId: newAssignee,
+            senderId: req.user._id,
+            boardId,
+            taskId: task._id,
+            type: 'task_assigned',
+            title: 'Task Assigned',
+            message: `${req.user.name} assigned you to task "${task.title}"`,
+            targetSection: 'details'
+          });
+        } catch (notifErr) {
+          console.error('Task re-assignment notification error:', notifErr);
+        }
+      }
     } else {
       await logActivity({
         boardId,

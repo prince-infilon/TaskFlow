@@ -19,7 +19,6 @@ const Notifications = lazy(() => import('./pages/Notifications'));
 const MyTasks = lazy(() => import('./pages/MyTasks'));
 const OrganizationSettings = lazy(() => import('./pages/OrganizationSettings'));
 const SecuritySettings = lazy(() => import('./pages/SecuritySettings'));
-const BillingSettings = lazy(() => import('./pages/BillingSettings'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const MyTeam = lazy(() => import('./pages/MyTeam'));
@@ -82,7 +81,6 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="settings/organization" element={<OrganizationSettings />} />
               <Route path="settings/security" element={<SecuritySettings />} />
-              <Route path="settings/billing" element={<BillingSettings />} />
             </Route>
             {/* Catch all to redirect home */}
             <Route path="*" element={<Navigate to="/" replace />} />

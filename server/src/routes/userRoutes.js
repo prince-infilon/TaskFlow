@@ -24,6 +24,9 @@ router.get('/me', (req, res) => {
 router.get('/me/dashboard', userController.getDashboardData);
 router.get('/me/tasks', userController.getMyTasks);
 router.get('/me/search', userController.globalSearch);
+router.patch('/me', userController.updateMyProfile);
+router.post('/me/change-password', userController.changeMyPassword);
+router.post('/me/revoke-sessions', userController.revokeMyOtherSessions);
 
 // ==============================================================================
 // Hierarchical User Management Routes (Admin & Manager)

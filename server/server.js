@@ -175,11 +175,16 @@ app.get('/api/health', (req, res) => {
   res.status(isHealthy ? 200 : 503).json(healthData);
 });
 
+const notificationRoutes = require('./src/routes/notificationRoutes');
+const activityRoutes = require('./src/routes/activityRoutes');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/orgs', organizationRoutes);
 app.use('/api/boards', boardRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Export the upload limiter for attachment routes
 app.set('uploadLimiter', uploadLimiter);

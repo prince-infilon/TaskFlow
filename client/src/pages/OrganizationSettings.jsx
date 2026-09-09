@@ -1,23 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
-import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Toast, { ToastContainer } from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
 import Avatar from '../components/ui/Avatar';
+import { 
+  Building2, 
+  Users, 
+  UserPlus, 
+  Shield, 
+  Trash2, 
+  Search, 
+  Layers, 
+  Activity, 
+  CheckCircle2, 
+  Crown,
+  Sparkles,
+  RefreshCw
+} from 'lucide-react';
 
 const OrganizationSettings = () => {
   const { activeOrganization, user } = useAuth();
   
   const [members, setMembers] = useState([]);
+  const [memberSearch, setMemberSearch] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [isLoading, setIsLoading] = useState(true);
+  const [isInviting, setIsInviting] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
+  const [confirmModal, setConfirmModal] = useState({ 
+    isOpen: false, 
+    title: '', 
+    message: '', 
+    confirmText: '', 
+    variant: 'danger', 
+    onConfirm: null, 
+    isLoading: false 
+  });
 
   const showToast = (message, type = 'success') => {
     const id = Date.now().toString();
@@ -28,66 +51,90 @@ const OrganizationSettings = () => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  const fetchMembers = async () => {
-    if (!activeOrganization) return;
+  const fetchMembers = useCallback(async () => {
+    if (!activeOrganization || !activeOrganization._id) return;
     try {
       setIsLoading(true);
-      const res = await apiClient.get(`/orgs/${activeOrganization._id}/members`);
-      setMembers(res.data.members || []);
+      const orgId = activeOrganization._id;
+
+      // Pass explicit x-organization-id header to guarantee API acceptance
+      const res = await apiClient.get(`/orgs/${orgId}/members`, {
+        headers: { 'x-organization-id': orgId }
+      });
+
+      // Handle both unpacked res.members and nested res.data.members
+      const membersList = res.members || res.data?.members || [];
+      setMembers(membersList);
     } catch (error) {
-      showToast('Failed to load organization members.', 'danger');
+      console.error('Fetch members error:', error);
+      showToast(error.message || 'Failed to load workspace members.', 'danger');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeOrganization]);
 
   useEffect(() => {
     fetchMembers();
-  }, [activeOrganization]);
+  }, [fetchMembers]);
 
   const handleInvite = async (e) => {
     e.preventDefault();
-    if (!inviteEmail) return;
+    if (!inviteEmail || !inviteEmail.trim()) return;
+
     try {
-      await apiClient.post(`/orgs/${activeOrganization._id}/members`, {
-        email: inviteEmail,
-        role: inviteRole
-      });
-      showToast('User invited successfully!');
+      setIsInviting(true);
+      const orgId = activeOrganization._id;
+      await apiClient.post(
+        `/orgs/${orgId}/members`,
+        { email: inviteEmail.trim(), role: inviteRole },
+        { headers: { 'x-organization-id': orgId } }
+      );
+
+      showToast(`Invited ${inviteEmail} successfully!`, 'success');
       setInviteEmail('');
       fetchMembers();
     } catch (error) {
-      showToast(error.response?.data?.error?.message || 'Failed to invite user.', 'danger');
+      showToast(error.message || 'Failed to invite user.', 'danger');
+    } finally {
+      setIsInviting(false);
     }
   };
 
   const handleUpdateRole = async (userId, newRole) => {
     try {
-      await apiClient.patch(`/orgs/${activeOrganization._id}/members/${userId}`, {
-        role: newRole
-      });
-      showToast('Role updated successfully.');
+      const orgId = activeOrganization._id;
+      await apiClient.patch(
+        `/orgs/${orgId}/members/${userId}`,
+        { role: newRole },
+        { headers: { 'x-organization-id': orgId } }
+      );
+
+      showToast('Member role updated successfully.', 'success');
       fetchMembers();
     } catch (error) {
-      showToast(error.response?.data?.error?.message || 'Failed to update role.', 'danger');
+      showToast(error.message || 'Failed to update role.', 'danger');
     }
   };
 
-  const handleRemoveMember = (userId) => {
+  const handleRemoveMember = (userId, memberName) => {
     setConfirmModal({
       isOpen: true,
       title: 'Remove Member',
-      message: 'Are you sure you want to remove this member from the organization? They will lose access to all organization boards and resources.',
+      message: `Are you sure you want to remove ${memberName} from the workspace? They will lose access to all organization boards and tasks.`,
       confirmText: 'Remove Member',
       variant: 'danger',
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, isLoading: true }));
         try {
-          await apiClient.delete(`/orgs/${activeOrganization._id}/members/${userId}`);
-          showToast('Member removed.');
+          const orgId = activeOrganization._id;
+          await apiClient.delete(`/orgs/${orgId}/members/${userId}`, {
+            headers: { 'x-organization-id': orgId }
+          });
+
+          showToast('Member removed from workspace.', 'success');
           fetchMembers();
         } catch (error) {
-          showToast(error.response?.data?.error?.message || 'Failed to remove member.', 'danger');
+          showToast(error.message || 'Failed to remove member.', 'danger');
         } finally {
           setConfirmModal({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
         }
@@ -95,115 +142,236 @@ const OrganizationSettings = () => {
     });
   };
 
-  // Check if current user is admin to determine if they can manage roles
-  const myMembership = members.find(m => m.user._id === user._id);
-  const isAdmin = myMembership?.role === 'admin' || myMembership?.role === 'manager'; // For Phase 1 we allow managers to invite
+  const myMembership = members.find(m => (m.user?._id || m.user) === user?._id);
+  const isAdminOrManager = user?.globalRole === 'admin' || user?.globalRole === 'manager' || myMembership?.role === 'admin' || myMembership?.role === 'manager';
+
+  const filteredMembers = members.filter(m => {
+    if (!memberSearch.trim()) return true;
+    const name = m.user?.name || '';
+    const email = m.user?.email || '';
+    return name.toLowerCase().includes(memberSearch.toLowerCase()) || email.toLowerCase().includes(memberSearch.toLowerCase());
+  });
 
   if (!activeOrganization) {
-    return <div className="p-8 text-secondary">No organization selected.</div>;
+    return (
+      <div className="p-8 text-center text-slate-400">
+        <Building2 className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
+        <p className="text-sm font-medium">No workspace selected.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-[800px] mx-auto w-full animate-in fade-in duration-300 pb-12">
-      <div className="mb-8 space-y-2">
-        <h1 className="text-h1 text-primary">Workspace Settings</h1>
-        <p className="text-body text-secondary">
-          Manage {activeOrganization.name}
-        </p>
+    <div className="max-w-[960px] mx-auto w-full animate-in fade-in duration-300 pb-16 text-slate-800 dark:text-slate-100">
+      {/* Page Header */}
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-xs">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-lg shrink-0">
+            <Building2 className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">{activeOrganization.name}</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                Workspace
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Workspace ID: <span className="font-mono text-[11px] text-slate-400">{activeOrganization._id}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchMembers}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-indigo-600' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-8">
-        {/* Members Section */}
-        <section>
-          <Card>
-            <CardHeader>
-              <CardTitle>Members</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              
-              {isAdmin && (
-                <form onSubmit={handleInvite} className="flex gap-3 items-end border-b border-border pb-6">
-                  <div className="flex-1 space-y-1">
-                    <label className="text-small font-medium">Invite by Email</label>
-                    <Input 
-                      type="email" 
-                      placeholder="colleague@example.com" 
-                      value={inviteEmail}
-                      onChange={e => setInviteEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="w-[150px] space-y-1">
-                    <label className="text-small font-medium">Role</label>
-                    <Select 
-                      value={inviteRole}
-                      onChange={setInviteRole}
-                      options={[
-                        { label: 'Member', value: 'member' },
-                        { label: 'Manager', value: 'manager' },
-                        { label: 'Admin', value: 'admin' }
-                      ]}
-                    />
-                  </div>
-                  <Button type="submit" variant="primary">Invite</Button>
-                </form>
-              )}
+      {/* Stats Summary Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center gap-3.5">
+          <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total Members</p>
+            <h3 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">{members.length}</h3>
+          </div>
+        </div>
 
-              {/* Show an upgrade link if toast error says limit */}
-              {toasts.some(t => t.message?.toLowerCase().includes('limit')) && (
-                <div className="p-3 bg-danger-50 text-danger-600 rounded-md border border-danger-100 flex flex-col gap-2">
-                  <span>It looks like you've reached your plan's limits.</span>
-                  <a href="/app/settings/billing" className="font-bold underline hover:text-danger-700">
-                    Upgrade your plan to add more members
-                  </a>
-                </div>
-              )}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center gap-3.5">
+          <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
+            <Crown className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Workspace Owner</p>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate max-w-[160px]">
+              {activeOrganization.owner?.name || user?.name || 'Owner'}
+            </h3>
+          </div>
+        </div>
 
-              <div className="space-y-4">
-                {isLoading ? (
-                  <p className="text-secondary text-small">Loading members...</p>
-                ) : (
-                  members.map(member => (
-                    <div key={member.user._id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-canvas">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={member.user.name} src={member.user.avatarUrl} size="md" />
-                        <div>
-                          <div className="text-body-medium font-medium">{member.user.name} {member.user._id === user._id && '(You)'}</div>
-                          <div className="text-small text-secondary">{member.user.email}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        {isAdmin && member.user._id !== user._id ? (
-                          <>
-                            <div className="w-[120px]">
-                              <Select 
-                                value={member.role}
-                                onChange={(val) => handleUpdateRole(member.user._id, val)}
-                                options={[
-                                  { label: 'Member', value: 'member' },
-                                  { label: 'Manager', value: 'manager' },
-                                  { label: 'Admin', value: 'admin' }
-                                ]}
-                              />
-                            </div>
-                            <Button variant="ghost" className="text-danger-600" onClick={() => handleRemoveMember(member.user._id)}>
-                              Remove
-                            </Button>
-                          </>
-                        ) : (
-                          <div className="px-3 py-1 bg-surface-muted rounded text-small text-secondary capitalize font-medium">
-                            {member.role}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center gap-3.5">
+          <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl">
+            <Shield className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Your Role</p>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 capitalize">
+              {myMembership?.role || user?.globalRole || 'Member'}
+            </h3>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Members Section */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-500" />
+              Workspace Members ({members.length})
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              People who have access to this organization's projects & boards
+            </p>
+          </div>
+
+          {/* Member Search Bar */}
+          <div className="relative w-full sm:w-[260px]">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search members..."
+              value={memberSearch}
+              onChange={e => setMemberSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Invite Member Form (Admins & Managers) */}
+        {isAdminOrManager && (
+          <form onSubmit={handleInvite} className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <UserPlus className="w-4 h-4 text-indigo-500" />
+              Invite Team Member
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 items-end">
+              <div className="flex-1 w-full space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500">Email Address</label>
+                <Input 
+                  type="email" 
+                  placeholder="colleague@example.com" 
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  className="text-xs bg-white dark:bg-slate-900"
+                />
               </div>
 
-            </CardContent>
-          </Card>
-        </section>
+              <div className="w-full sm:w-[150px] space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500">Role</label>
+                <Select 
+                  value={inviteRole}
+                  onChange={setInviteRole}
+                  options={[
+                    { label: 'Member', value: 'member' },
+                    { label: 'Manager', value: 'manager' },
+                    { label: 'Admin', value: 'admin' }
+                  ]}
+                />
+              </div>
+
+              <Button 
+                type="submit" 
+                variant="primary" 
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2 font-semibold text-xs transition-all shadow-xs shrink-0"
+                isLoading={isInviting}
+              >
+                Send Invite
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {/* Members List */}
+        <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+          {isLoading ? (
+            <div className="p-8 text-center text-xs text-slate-400">
+              Loading members...
+            </div>
+          ) : filteredMembers.length > 0 ? (
+            filteredMembers.map(member => {
+              const memberObj = member.user || {};
+              const memberId = memberObj._id || memberObj.id;
+              const isCurrentUser = memberId === user?._id;
+
+              return (
+                <div key={memberId} className="py-3.5 flex items-center justify-between gap-4 group">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={memberObj.name || 'Member'} src={memberObj.avatarUrl} size="md" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                          {memberObj.name || 'Unknown User'}
+                        </span>
+                        {isCurrentUser && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                            You
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {memberObj.email || ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    {isAdminOrManager && !isCurrentUser ? (
+                      <>
+                        <div className="w-[120px]">
+                          <Select 
+                            value={member.role}
+                            onChange={(val) => handleUpdateRole(memberId, val)}
+                            options={[
+                              { label: 'Member', value: 'member' },
+                              { label: 'Manager', value: 'manager' },
+                              { label: 'Admin', value: 'admin' }
+                            ]}
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleRemoveMember(memberId, memberObj.name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 capitalize">
+                        {member.role}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-8 text-center text-xs text-slate-400">
+              No members found matching "{memberSearch}".
+            </div>
+          )}
+        </div>
       </div>
 
       <ToastContainer>
@@ -233,3 +401,4 @@ const OrganizationSettings = () => {
 };
 
 export default OrganizationSettings;
+

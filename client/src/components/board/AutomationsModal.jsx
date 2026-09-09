@@ -1,79 +1,116 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Select from '../ui/Select';
-import { Trash2, Zap } from 'lucide-react';
+import { 
+  Trash2, 
+  Zap, 
+  ArrowRight, 
+  CheckCircle2, 
+  UserX, 
+  AlertCircle, 
+  ShieldAlert, 
+  Sparkles,
+  ToggleLeft,
+  ToggleRight,
+  Layers
+} from 'lucide-react';
 import apiClient from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
-const AutomationsModal = ({ isOpen, onClose, boardId, columns }) => {
+const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
   const { user } = useAuth();
   const [automations, setAutomations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const isManager = user?.globalRole === 'admin' || user?.globalRole === 'manager';
 
   const [newRule, setNewRule] = useState({
     trigger: 'task_moved',
-    columnId: columns.length > 0 ? columns[0].id : '',
+    columnId: columns.length > 0 ? (columns[0].id || columns[0]._id) : '',
     action: 'mark_complete',
-    actionPayload: {}
+    actionPayload: { priority: 'medium' }
   });
 
-  useEffect(() => {
-    if (isOpen && boardId) {
-      fetchAutomations();
-      if (columns.length > 0 && !newRule.columnId) {
-        setNewRule(prev => ({ ...prev, columnId: columns[0].id }));
-      }
-    }
-  }, [isOpen, boardId, columns]);
-
-  const fetchAutomations = async () => {
+  const fetchAutomations = useCallback(async () => {
+    if (!boardId) return;
     try {
       setIsLoading(true);
+      setError('');
       const res = await apiClient.get(`/boards/${boardId}/automations`);
-      setAutomations(res.data.automations || res.automations || []);
+      const automationsList = res.data?.data?.automations || res.data?.automations || res.data || [];
+      setAutomations(automationsList);
     } catch (err) {
-      setError('Failed to load automations');
+      console.error('Failed to fetch automations:', err);
+      setError('Failed to load automations. Please check your network connection.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [boardId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchAutomations();
+      if (columns.length > 0 && !newRule.columnId) {
+        setNewRule(prev => ({ ...prev, columnId: columns[0].id || columns[0]._id }));
+      }
+    }
+  }, [isOpen, fetchAutomations, columns]);
 
   const handleCreate = async () => {
     if (!newRule.trigger || !newRule.action) return;
     setIsCreating(true);
     setError('');
+    setSuccessMsg('');
 
     try {
       const payload = {
         trigger: newRule.trigger,
         action: newRule.action,
+        condition: { columnId: newRule.columnId }
       };
 
-      if (newRule.trigger === 'task_moved') {
-        payload.condition = { columnId: newRule.columnId };
-      }
-
       if (newRule.action === 'set_priority') {
-        payload.actionPayload = { priority: newRule.actionPayload.priority || 'medium' };
+        payload.actionPayload = { priority: newRule.actionPayload?.priority || 'medium' };
       }
 
       const res = await apiClient.post(`/boards/${boardId}/automations`, payload);
-      setAutomations(prev => [...prev, res.data.automation || res.automation]);
-      
+      const createdAuto = res.data?.data?.automation || res.data?.automation;
+
+      if (createdAuto) {
+        setAutomations(prev => [createdAuto, ...prev]);
+        setSuccessMsg('Automation rule created successfully!');
+        setTimeout(() => setSuccessMsg(''), 3000);
+      }
+
       // Reset
       setNewRule({
         trigger: 'task_moved',
-        columnId: columns.length > 0 ? columns[0].id : '',
+        columnId: columns.length > 0 ? (columns[0].id || columns[0]._id) : '',
         action: 'mark_complete',
-        actionPayload: {}
+        actionPayload: { priority: 'medium' }
       });
     } catch (err) {
-      setError(err.message || 'Failed to create automation');
+      console.error('Create automation error:', err);
+      setError(err.response?.data?.error?.message || err.message || 'Failed to create automation rule');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleToggleActive = async (auto) => {
+    try {
+      const nextState = !auto.isActive;
+      const res = await apiClient.patch(`/boards/${boardId}/automations/${auto._id}`, { isActive: nextState });
+      const updated = res.data?.data?.automation || res.data?.automation;
+
+      setAutomations(prev => prev.map(a => a._id === auto._id ? (updated || { ...a, isActive: nextState }) : a));
+    } catch (err) {
+      console.error('Failed to toggle automation:', err);
+      setError('Failed to update automation state');
     }
   };
 
@@ -82,27 +119,18 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns }) => {
       await apiClient.delete(`/boards/${boardId}/automations/${automationId}`);
       setAutomations(prev => prev.filter(a => a._id !== automationId));
     } catch (err) {
-      setError(err.message || 'Failed to delete automation');
+      console.error('Delete automation error:', err);
+      setError(err.response?.data?.error?.message || 'Failed to delete automation rule');
     }
   };
 
-  const formatRule = (auto) => {
-    let text = '';
-    if (auto.trigger === 'task_moved') {
-      text += `When a task is moved to "${auto.condition?.columnId?.name || 'a specific column'}", `;
-    } else if (auto.trigger === 'task_created') {
-      text += `When a task is created in "${auto.condition?.columnId?.name || 'a specific column'}", `;
+  const getTargetColumnName = (condition) => {
+    if (!condition || !condition.columnId) return 'Any Column';
+    if (typeof condition.columnId === 'object') {
+      return condition.columnId.name || condition.columnId.title || 'Column';
     }
-
-    if (auto.action === 'mark_complete') {
-      text += 'mark all its subtasks as complete.';
-    } else if (auto.action === 'unassign') {
-      text += 'unassign everyone.';
-    } else if (auto.action === 'set_priority') {
-      text += `set its priority to ${auto.actionPayload?.priority || 'medium'}.`;
-    }
-
-    return text;
+    const foundCol = columns.find(c => (c.id || c._id) === condition.columnId);
+    return foundCol ? foundCol.title : 'Column';
   };
 
   return (
@@ -112,96 +140,182 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns }) => {
       title="Board Automations"
       size="md"
     >
-      <div className="space-y-6">
-        {error && <div className="text-small text-danger-500 bg-danger-50 p-2 rounded">{error}</div>}
+      <div className="space-y-5 text-slate-800 dark:text-slate-100">
+        {/* Messages */}
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-semibold">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-        <div className="bg-surface-muted p-4 rounded-lg border border-border space-y-4">
-          <h3 className="text-body-medium font-bold text-primary flex items-center gap-2">
-            <Zap className="w-4 h-4 text-accent-500" />
-            Create New Rule
-          </h3>
-          
-          <div className="grid gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-small font-medium text-secondary">When...</label>
+        {successMsg && (
+          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        {/* Rule Builder Form */}
+        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-indigo-500" />
+              Create Automation Rule
+            </h3>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              No-Code Triggers
+            </span>
+          </div>
+
+          <div className="grid gap-3 text-xs">
+            {/* Step 1: Trigger */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-500 uppercase">When (Event Trigger)</label>
               <Select 
                 value={newRule.trigger}
                 onChange={(val) => setNewRule({ ...newRule, trigger: val })}
                 options={[
-                  { label: 'A task is moved to column', value: 'task_moved' },
-                  { label: 'A task is created in column', value: 'task_created' }
+                  { label: '⚡ Task is moved to column', value: 'task_moved' },
+                  { label: '✨ Task is created in column', value: 'task_created' }
                 ]}
               />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-small font-medium text-secondary">Column</label>
+            {/* Step 2: Target Column */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-500 uppercase">Target Column</label>
               <Select 
                 value={newRule.columnId}
                 onChange={(val) => setNewRule({ ...newRule, columnId: val })}
-                options={columns.map(c => ({ label: c.title, value: c.id }))}
+                options={columns.map(c => ({ label: `📁 ${c.title}`, value: c.id || c._id }))}
               />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-small font-medium text-secondary">Then...</label>
+            {/* Step 3: Action */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-500 uppercase">Then (Automated Action)</label>
               <Select 
                 value={newRule.action}
                 onChange={(val) => setNewRule({ ...newRule, action: val })}
                 options={[
-                  { label: 'Mark all subtasks complete', value: 'mark_complete' },
-                  { label: 'Unassign task', value: 'unassign' },
-                  { label: 'Set Priority', value: 'set_priority' }
+                  { label: '✅ Mark all subtasks as complete', value: 'mark_complete' },
+                  { label: '👤 Unassign task assignee', value: 'unassign' },
+                  { label: '🏷️ Set Task Priority', value: 'set_priority' }
                 ]}
               />
             </div>
 
+            {/* Priority Payload options if action is set_priority */}
             {newRule.action === 'set_priority' && (
-              <div className="flex flex-col gap-1">
-                <label className="text-small font-medium text-secondary">To Priority</label>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase">Priority Value</label>
                 <Select 
-                  value={newRule.actionPayload.priority || 'medium'}
+                  value={newRule.actionPayload?.priority || 'medium'}
                   onChange={(val) => setNewRule({ ...newRule, actionPayload: { priority: val } })}
                   options={[
-                    { label: 'Low', value: 'low' },
-                    { label: 'Medium', value: 'medium' },
-                    { label: 'High', value: 'high' }
+                    { label: 'Low Priority', value: 'low' },
+                    { label: 'Medium Priority', value: 'medium' },
+                    { label: 'High Priority', value: 'high' }
                   ]}
                 />
               </div>
             )}
 
             <div className="pt-2">
-              <Button variant="primary" className="w-full" onClick={handleCreate} isLoading={isCreating}>
-                Add Rule
+              <Button 
+                variant="primary" 
+                className="w-full justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2 font-semibold shadow-xs transition-all" 
+                onClick={handleCreate} 
+                isLoading={isCreating}
+              >
+                Add Automation Rule
               </Button>
             </div>
           </div>
         </div>
 
+        {/* Active Rules List */}
         <div>
-          <h3 className="text-body-medium font-bold text-primary mb-3">Active Rules</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-slate-400" />
+              Active Rules ({automations.length})
+            </h3>
+          </div>
+
           {isLoading ? (
-            <p className="text-small text-tertiary">Loading rules...</p>
+            <div className="p-6 text-center text-xs text-slate-400">
+              Loading rules...
+            </div>
           ) : automations.length > 0 ? (
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 hide-scrollbar">
-              {automations.map(auto => (
-                <div key={auto._id} className="flex items-center justify-between p-3 bg-surface border border-border rounded-md group">
-                  <div className="flex-1">
-                    <p className="text-small text-primary">{formatRule(auto)}</p>
-                    <p className="text-[10px] text-tertiary mt-1">Created by {auto.createdBy?.name || 'Unknown'}</p>
-                  </div>
-                  <button 
-                    onClick={() => handleDelete(auto._id)}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-tertiary hover:text-danger-500 transition-all shrink-0"
+            <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+              {automations.map(auto => {
+                const targetColName = getTargetColumnName(auto.condition);
+                const isActive = auto.isActive !== false;
+
+                return (
+                  <div 
+                    key={auto._id} 
+                    className={`p-3.5 rounded-xl border transition-all ${
+                      isActive
+                        ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200/50 dark:border-slate-800/50 opacity-60'
+                    }`}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <button
+                          onClick={() => handleToggleActive(auto)}
+                          className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shrink-0"
+                          title={isActive ? 'Disable rule' : 'Enable rule'}
+                        >
+                          {isActive ? (
+                            <ToggleRight className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                          ) : (
+                            <ToggleLeft className="w-6 h-6 text-slate-400" />
+                          )}
+                        </button>
+
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px]">
+                              {auto.trigger === 'task_moved' ? 'Task Moved' : 'Task Created'}
+                            </span>
+                            <ArrowRight className="w-3 h-3 text-slate-400" />
+                            <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px]">
+                              "{targetColName}"
+                            </span>
+                            <ArrowRight className="w-3 h-3 text-slate-400" />
+                            <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-[10px] capitalize">
+                              {auto.action === 'mark_complete'
+                                ? 'Mark Complete'
+                                : auto.action === 'unassign'
+                                ? 'Unassign'
+                                : `Set ${auto.actionPayload?.priority || 'medium'} priority`}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            Created by {auto.createdBy?.name || 'Manager'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleDelete(auto._id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
+                        title="Delete Rule"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="text-center p-6 border-2 border-dashed border-border rounded-lg text-tertiary text-small">
+            <div className="text-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
+              <Sparkles className="w-6 h-6 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
               No automations configured for this board yet.
             </div>
           )}
@@ -212,3 +326,4 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns }) => {
 };
 
 export default AutomationsModal;
+
