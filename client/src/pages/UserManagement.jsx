@@ -27,6 +27,7 @@ import Select from '../components/ui/Select';
 import Badge from '../components/ui/Badge';
 import Avatar from '../components/ui/Avatar';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import Toast, { ToastContainer } from '../components/ui/Toast';
 
 export default function UserManagement() {
@@ -48,6 +49,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [activeManagers, setActiveManagers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -353,22 +355,32 @@ export default function UserManagement() {
     }
   };
 
-  const handleToggleStatus = async (targetUser) => {
+  const handleToggleStatus = (targetUser) => {
     if (targetUser._id === user._id) {
       showToast('You cannot deactivate your own administrative account.', 'danger');
       return;
     }
     const action = targetUser.isActive ? 'deactivate' : 'activate';
-    if (!window.confirm(`Are you sure you want to ${action} ${targetUser.name}?`)) return;
-
-    try {
-      await apiClient.patch(`/users/${targetUser._id}/status`);
-      showToast(`User ${action}d successfully.`);
-      fetchUsers();
-      fetchActiveManagers();
-    } catch (err) {
-      showToast(err.message || `Failed to ${action} user`, 'danger');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: `${targetUser.isActive ? 'Deactivate' : 'Activate'} User`,
+      message: `Are you sure you want to ${action} ${targetUser.name}? ${targetUser.isActive ? 'They will no longer be able to log in or access TaskFlow.' : 'They will regain access to TaskFlow.'}`,
+      confirmText: targetUser.isActive ? 'Deactivate' : 'Activate',
+      variant: targetUser.isActive ? 'danger' : 'primary',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await apiClient.patch(`/users/${targetUser._id}/status`);
+          showToast(`User ${action}d successfully.`);
+          fetchUsers();
+          fetchActiveManagers();
+        } catch (err) {
+          showToast(err.message || `Failed to ${action} user`, 'danger');
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
+        }
+      }
+    });
   };
 
   const handleResetPassword = async (e) => {
@@ -1018,6 +1030,17 @@ export default function UserManagement() {
           />
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        isLoading={confirmModal.isLoading}
+      />
     </div>
   );
 }

@@ -102,14 +102,14 @@ const initializeSocket = (server) => {
 
         let isAuthorized = false;
 
-        if (socket.user.globalRole === 'member') {
-          // Members strictly ONLY have room access if they are board owner or have assigned tasks
-          isAuthorized = isOwner || hasTaskOnBoard;
-        } else {
-          const isOrgMember = org && org.members.some(m => m.user.toString() === socket.user._id.toString());
-          const isBoardMember = board.members && board.members.some(m => m.user.toString() === socket.user._id.toString());
-          const isManagerBoard = socket.user.managerId && board.owner && board.owner.toString() === socket.user.managerId.toString();
+        const isOrgMember = org && org.members.some(m => m.user.toString() === socket.user._id.toString());
+        const isBoardMember = board.members && board.members.some(m => m.user.toString() === socket.user._id.toString());
+        const isManagerBoard = socket.user.managerId && board.owner && board.owner.toString() === socket.user.managerId.toString();
 
+        if (socket.user.globalRole === 'member') {
+          // Members strictly have room access if they are board owner, board member, or have assigned tasks
+          isAuthorized = isOwner || isBoardMember || hasTaskOnBoard;
+        } else {
           isAuthorized = isOrgMember || isBoardMember || isOwner || isManagerBoard || isAdmin || hasTaskOnBoard;
         }
 

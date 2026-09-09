@@ -111,7 +111,7 @@ exports.deleteComment = async (req, res, next) => {
 
     // RBAC: author can delete, OR manager/admin can delete
     const isAuthor = comment.author.toString() === req.user._id.toString();
-    const isManagerOrAdmin = req.user.globalRole === 'admin' || req.boardRole === 'manager';
+    const isManagerOrAdmin = req.user.globalRole === 'admin' || req.user.globalRole === 'manager' || req.boardRole === 'manager' || req.boardRole === 'owner';
 
     if (!isAuthor && !isManagerOrAdmin) {
       return res.status(403).json({ success: false, error: { message: 'Forbidden: Cannot delete this comment' } });

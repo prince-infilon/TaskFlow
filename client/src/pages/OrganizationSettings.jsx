@@ -4,6 +4,7 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Toast, { ToastContainer } from '../components/ui/Toast';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
 import Avatar from '../components/ui/Avatar';
@@ -16,6 +17,7 @@ const OrganizationSettings = () => {
   const [inviteRole, setInviteRole] = useState('member');
   const [isLoading, setIsLoading] = useState(true);
   const [toasts, setToasts] = useState([]);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
 
   const showToast = (message, type = 'success') => {
     const id = Date.now().toString();
@@ -71,15 +73,26 @@ const OrganizationSettings = () => {
     }
   };
 
-  const handleRemoveMember = async (userId) => {
-    if (!window.confirm('Are you sure you want to remove this member?')) return;
-    try {
-      await apiClient.delete(`/orgs/${activeOrganization._id}/members/${userId}`);
-      showToast('Member removed.');
-      fetchMembers();
-    } catch (error) {
-      showToast(error.response?.data?.error?.message || 'Failed to remove member.', 'danger');
-    }
+  const handleRemoveMember = (userId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Member',
+      message: 'Are you sure you want to remove this member from the organization? They will lose access to all organization boards and resources.',
+      confirmText: 'Remove Member',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await apiClient.delete(`/orgs/${activeOrganization._id}/members/${userId}`);
+          showToast('Member removed.');
+          fetchMembers();
+        } catch (error) {
+          showToast(error.response?.data?.error?.message || 'Failed to remove member.', 'danger');
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
+        }
+      }
+    });
   };
 
   // Check if current user is admin to determine if they can manage roles
@@ -204,6 +217,17 @@ const OrganizationSettings = () => {
           />
         ))}
       </ToastContainer>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        isLoading={confirmModal.isLoading}
+      />
     </div>
   );
 };

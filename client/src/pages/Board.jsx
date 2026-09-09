@@ -28,6 +28,7 @@ import Avatar, { AvatarGroup } from '../components/ui/Avatar';
 import Badge from '../components/ui/Badge';
 import Drawer from '../components/ui/Drawer';
 import Modal from '../components/ui/Modal';
+import Toast, { ToastContainer } from '../components/ui/Toast';
 import Select from '../components/ui/Select';
 import CalendarView from '../components/views/CalendarView';
 import GanttView from '../components/views/GanttView';
@@ -203,6 +204,16 @@ const Board = () => {
   const [isBoardLoaded, setIsBoardLoaded] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [socketSignal, setSocketSignal] = useState({ type: null, timestamp: 0 });
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'success') => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
   
   // Drawer State
   const [selectedTask, setSelectedTask] = useState(null);
@@ -581,6 +592,122 @@ const Board = () => {
         })));
       };
 
+      const handleCommentCreated = (data) => {
+        if (!data || !data.taskId || !data.comment) return;
+        const targetTaskId = data.taskId.toString();
+
+        setSelectedTask(current => {
+          if (current && (current.id?.toString() === targetTaskId || current._id?.toString() === targetTaskId)) {
+            setTaskComments(prev => {
+              if (prev.some(c => c._id?.toString() === data.comment._id?.toString())) return prev;
+              return [...prev, data.comment];
+            });
+            return {
+              ...current,
+              comments: typeof current.comments === 'number' ? current.comments + 1 : 1
+            };
+          }
+          return current;
+        });
+
+        setColumns(prev => prev.map(col => ({
+          ...col,
+          tasks: col.tasks.map(t => (t.id?.toString() === targetTaskId || t._id?.toString() === targetTaskId) ? {
+            ...t,
+            comments: typeof t.comments === 'number' ? t.comments + 1 : 1
+          } : t)
+        })));
+      };
+
+      const handleCommentUpdated = (data) => {
+        if (!data || !data.taskId || !data.comment) return;
+        const targetTaskId = data.taskId.toString();
+
+        setSelectedTask(current => {
+          if (current && (current.id?.toString() === targetTaskId || current._id?.toString() === targetTaskId)) {
+            setTaskComments(prev => prev.map(c => c._id?.toString() === data.comment._id?.toString() ? data.comment : c));
+          }
+          return current;
+        });
+      };
+
+      const handleCommentDeleted = (data) => {
+        if (!data || !data.taskId || !data.commentId) return;
+        const targetTaskId = data.taskId.toString();
+        const commentId = data.commentId.toString();
+
+        setSelectedTask(current => {
+          if (current && (current.id?.toString() === targetTaskId || current._id?.toString() === targetTaskId)) {
+            setTaskComments(prev => prev.filter(c => c._id?.toString() !== commentId));
+            return {
+              ...current,
+              comments: Math.max(0, (typeof current.comments === 'number' ? current.comments - 1 : 0))
+            };
+          }
+          return current;
+        });
+
+        setColumns(prev => prev.map(col => ({
+          ...col,
+          tasks: col.tasks.map(t => (t.id?.toString() === targetTaskId || t._id?.toString() === targetTaskId) ? {
+            ...t,
+            comments: Math.max(0, (typeof t.comments === 'number' ? t.comments - 1 : 0))
+          } : t)
+        })));
+      };
+
+      const handleAttachmentUploaded = (data) => {
+        if (!data || !data.taskId || !data.attachment) return;
+        const targetTaskId = data.taskId.toString();
+
+        setSelectedTask(current => {
+          if (current && (current.id?.toString() === targetTaskId || current._id?.toString() === targetTaskId)) {
+            setTaskAttachments(prev => {
+              if (prev.some(a => a._id?.toString() === data.attachment._id?.toString())) return prev;
+              return [data.attachment, ...prev];
+            });
+            return {
+              ...current,
+              attachments: typeof current.attachments === 'number' ? current.attachments + 1 : 1
+            };
+          }
+          return current;
+        });
+
+        setColumns(prev => prev.map(col => ({
+          ...col,
+          tasks: col.tasks.map(t => (t.id?.toString() === targetTaskId || t._id?.toString() === targetTaskId) ? {
+            ...t,
+            attachments: typeof t.attachments === 'number' ? t.attachments + 1 : 1
+          } : t)
+        })));
+      };
+
+      const handleAttachmentDeleted = (data) => {
+        if (!data || !data.taskId || !data.attachmentId) return;
+        const targetTaskId = data.taskId.toString();
+        const attachmentId = data.attachmentId.toString();
+
+        setSelectedTask(current => {
+          if (current && (current.id?.toString() === targetTaskId || current._id?.toString() === targetTaskId)) {
+            setTaskAttachments(prev => prev.filter(a => a._id?.toString() !== attachmentId));
+            return {
+              ...current,
+              attachments: Math.max(0, (typeof current.attachments === 'number' ? current.attachments - 1 : 0))
+            };
+          }
+          return current;
+        });
+
+        setColumns(prev => prev.map(col => ({
+          ...col,
+          tasks: col.tasks.map(t => (t.id?.toString() === targetTaskId || t._id?.toString() === targetTaskId) ? {
+            ...t,
+            attachments: Math.max(0, (typeof t.attachments === 'number' ? t.attachments - 1 : 0))
+          } : t)
+        })));
+      };
+
       socket.on('task_created', handleTaskCreated);
       socket.on('task_updated', handleTaskUpdated);
       socket.on('task_moved', handleTaskMoved);
@@ -590,22 +717,11 @@ const Board = () => {
       socket.on('member_removed', triggerBothUpdate);
       socket.on('member_role_changed', triggerBoardUpdate);
       
-      socket.on('comment_created', (data) => {
-        handleTaskUpdated(data);
-        triggerTaskUpdate();
-      });
-      socket.on('comment_deleted', (data) => {
-        handleTaskUpdated(data);
-        triggerTaskUpdate();
-      });
-      socket.on('attachment_uploaded', (data) => {
-        handleTaskUpdated(data);
-        triggerTaskUpdate();
-      });
-      socket.on('attachment_deleted', (data) => {
-        handleTaskUpdated(data);
-        triggerTaskUpdate();
-      });
+      socket.on('comment_created', handleCommentCreated);
+      socket.on('comment_updated', handleCommentUpdated);
+      socket.on('comment_deleted', handleCommentDeleted);
+      socket.on('attachment_uploaded', handleAttachmentUploaded);
+      socket.on('attachment_deleted', handleAttachmentDeleted);
       
       socket.on('presence_update', (users) => {
         setOnlineUsers(users);
@@ -621,10 +737,11 @@ const Board = () => {
         socket.off('member_added', triggerBothUpdate);
         socket.off('member_removed', triggerBothUpdate);
         socket.off('member_role_changed', triggerBoardUpdate);
-        socket.off('comment_created');
-        socket.off('comment_deleted');
-        socket.off('attachment_uploaded');
-        socket.off('attachment_deleted');
+        socket.off('comment_created', handleCommentCreated);
+        socket.off('comment_updated', handleCommentUpdated);
+        socket.off('comment_deleted', handleCommentDeleted);
+        socket.off('attachment_uploaded', handleAttachmentUploaded);
+        socket.off('attachment_deleted', handleAttachmentDeleted);
         socket.off('presence_update');
         disconnectSocket();
       };
@@ -787,6 +904,7 @@ const Board = () => {
         status: columns.length > 0 ? columns[0].id : ''
       });
       setIsModalOpen(false);
+      showToast('Task created successfully!');
     } catch (err) {
       setTaskFormError(err.message || 'Failed to create task');
     } finally {
@@ -831,6 +949,7 @@ const Board = () => {
         await fetchTasks(false);
       }
       setIsEditTaskModalOpen(false);
+      showToast('Task updated successfully!');
     } catch (err) {
       setEditTaskFormError(err.message || 'Failed to update task');
     } finally {
@@ -844,8 +963,9 @@ const Board = () => {
       await fetchTasks(false);
       setIsDrawerOpen(false);
       setTaskToDelete(false);
+      showToast('Task deleted successfully.');
     } catch (err) {
-      alert(err.message || 'Failed to delete task');
+      showToast(err.message || 'Failed to delete task', 'danger');
     }
   };
 
@@ -859,8 +979,9 @@ const Board = () => {
       setTaskComments(prev => [...prev, res.data.comment]);
       setNewComment('');
       await fetchTasks(false); // update stats if needed
+      showToast('Comment added.');
     } catch (err) {
-      alert(err.message || 'Failed to add comment');
+      showToast(err.message || 'Failed to add comment', 'danger');
     } finally {
       setIsCommenting(false);
     }
@@ -872,8 +993,9 @@ const Board = () => {
       setTaskComments(prev => prev.filter(c => c._id !== commentId));
       await fetchTasks(false);
       setCommentToDelete(null);
+      showToast('Comment deleted.');
     } catch (err) {
-      alert(err.message || 'Failed to delete comment');
+      showToast(err.message || 'Failed to delete comment', 'danger');
     }
   };
 
@@ -895,8 +1017,10 @@ const Board = () => {
       });
       setTaskAttachments(prev => [res.data.attachment, ...prev]);
       await fetchTasks(false);
+      showToast('Attachment uploaded.');
     } catch (err) {
       setUploadError(err.message || 'Failed to upload attachment');
+      showToast(err.message || 'Failed to upload attachment', 'danger');
     } finally {
       setIsUploading(false);
       // reset file input
@@ -910,8 +1034,9 @@ const Board = () => {
       setTaskAttachments(prev => prev.filter(a => a._id !== attachmentId));
       await fetchTasks(false);
       setAttachmentToDelete(null);
+      showToast('Attachment deleted.');
     } catch (err) {
-      alert(err.message || 'Failed to delete attachment');
+      showToast(err.message || 'Failed to delete attachment', 'danger');
     }
   };
 
@@ -928,7 +1053,7 @@ const Board = () => {
       link.click();
       link.remove();
     } catch (err) {
-      alert('Failed to download attachment');
+      showToast('Failed to download attachment', 'danger');
     }
   };
 
@@ -1002,6 +1127,7 @@ const Board = () => {
       const res = await apiClient.patch(`/boards/${boardId}`, editBoardForm);
       setBoard(res.data.board);
       setIsEditModalOpen(false);
+      showToast('Board updated successfully!');
     } catch (err) {
       setBoardError(err.message || 'Failed to update board');
     } finally {
@@ -1028,7 +1154,8 @@ const Board = () => {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-300">
+    <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] -m-6 p-6 overflow-hidden animate-in fade-in duration-300">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       
       {/* Board Header */}
       <div className="relative z-20 shrink-0 mb-6 space-y-4">
@@ -1551,7 +1678,7 @@ const Board = () => {
                           <IconButton variant="ghost" className="w-7 h-7 text-secondary" onClick={() => handleDownloadAttachment(att)}>
                             <Download className="w-4 h-4" />
                           </IconButton>
-                          {(!isMember || att.uploadedBy?._id === user?._id || att.uploadedBy === user?._id) && (
+                          {(!isMember || user?.globalRole === 'manager' || user?.globalRole === 'admin' || att.uploadedBy?._id === user?._id || att.uploadedBy === user?._id) && (
                             <IconButton 
                               variant="ghost" 
                               className="w-7 h-7 text-danger-500" 
@@ -1614,7 +1741,7 @@ const Board = () => {
                             <span className="text-small font-medium text-primary">{comment.author?.name || 'Unknown'}</span>
                             <span className="text-[11px] text-tertiary">{new Date(comment.createdAt).toLocaleString()}</span>
                           </div>
-                          {(!isMember || comment.author?._id === user?._id || comment.author === user?._id) && (
+                          {(!isMember || user?.globalRole === 'manager' || user?.globalRole === 'admin' || comment.author?._id === user?._id || comment.author === user?._id) && (
                             <button 
                               onClick={() => setConfirmDialog({
                                 isOpen: true,

@@ -82,7 +82,7 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns }) => {
       await apiClient.delete(`/boards/${boardId}/automations/${automationId}`);
       setAutomations(prev => prev.filter(a => a._id !== automationId));
     } catch (err) {
-      alert('Failed to delete automation');
+      setError(err.message || 'Failed to delete automation');
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiClient from '../api/client';
+import { connectSocket, disconnectSocket } from '../api/socket';
 
 const AuthContext = createContext(null);
 
@@ -25,6 +26,14 @@ export const AuthProvider = ({ children }) => {
   if (activeOrganization && !apiClient.defaults.headers.common['x-organization-id']) {
     apiClient.defaults.headers.common['x-organization-id'] = activeOrganization._id;
   }
+
+  useEffect(() => {
+    if (token) {
+      connectSocket(token);
+    } else {
+      disconnectSocket();
+    }
+  }, [token]);
 
   useEffect(() => {
     const initializeAuth = async () => {

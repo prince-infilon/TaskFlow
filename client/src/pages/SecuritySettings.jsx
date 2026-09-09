@@ -3,6 +3,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
 import Toast, { ToastContainer } from '../components/ui/Toast';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import apiClient from '../api/client';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -12,6 +13,7 @@ const SecuritySettings = () => {
   const [backupCodes, setBackupCodes] = useState([]);
   const [isMfaEnabled, setIsMfaEnabled] = useState(false); // We should get this from user context, but let's assume false or fetch it
   const [toasts, setToasts] = useState([]);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
 
   const showToast = (message, type = 'success') => {
     const id = Date.now().toString();
@@ -44,16 +46,27 @@ const SecuritySettings = () => {
     }
   };
 
-  const handleDisableMFA = async () => {
-    if (!window.confirm('Are you sure you want to disable MFA? This decreases your account security.')) return;
-    try {
-      await apiClient.post('/auth/mfa/disable');
-      setIsMfaEnabled(false);
-      setBackupCodes([]);
-      showToast('MFA disabled successfully.');
-    } catch (error) {
-      showToast(error.response?.data?.error?.message || 'Failed to disable MFA', 'danger');
-    }
+  const handleDisableMFA = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Disable MFA',
+      message: 'Are you sure you want to disable Multi-Factor Authentication? This decreases your account security.',
+      confirmText: 'Disable MFA',
+      variant: 'warning',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await apiClient.post('/auth/mfa/disable');
+          setIsMfaEnabled(false);
+          setBackupCodes([]);
+          showToast('MFA disabled successfully.');
+        } catch (error) {
+          showToast(error.response?.data?.error?.message || 'Failed to disable MFA', 'danger');
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
+        }
+      }
+    });
   };
 
   const handleLogoutOtherDevices = async () => {
@@ -167,6 +180,17 @@ const SecuritySettings = () => {
           />
         ))}
       </ToastContainer>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        isLoading={confirmModal.isLoading}
+      />
     </div>
   );
 };

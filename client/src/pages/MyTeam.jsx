@@ -19,6 +19,7 @@ import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import Avatar from '../components/ui/Avatar';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import Toast, { ToastContainer } from '../components/ui/Toast';
 
 export default function MyTeam() {
@@ -38,6 +39,7 @@ export default function MyTeam() {
 
   const [members, setMembers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [toasts, setToasts] = useState([]);
@@ -245,17 +247,27 @@ export default function MyTeam() {
   };
 
   // Submit: Toggle member status
-  const handleToggleStatus = async (targetMember) => {
+  const handleToggleStatus = (targetMember) => {
     const action = targetMember.isActive ? 'deactivate' : 'activate';
-    if (!window.confirm(`Are you sure you want to ${action} ${targetMember.name}?`)) return;
-
-    try {
-      await apiClient.patch(`/users/${targetMember._id}/status`);
-      showToast(`Member ${action}d successfully.`);
-      fetchMyMembers();
-    } catch (err) {
-      showToast(err.message || `Failed to ${action} member`, 'danger');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: `${targetMember.isActive ? 'Deactivate' : 'Activate'} Member`,
+      message: `Are you sure you want to ${action} ${targetMember.name}? ${targetMember.isActive ? 'They will no longer be able to access assigned tasks or boards.' : 'They will regain access to TaskFlow.'}`,
+      confirmText: targetMember.isActive ? 'Deactivate' : 'Activate',
+      variant: targetMember.isActive ? 'danger' : 'primary',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await apiClient.patch(`/users/${targetMember._id}/status`);
+          showToast(`Member ${action}d successfully.`);
+          fetchMyMembers();
+        } catch (err) {
+          showToast(err.message || `Failed to ${action} member`, 'danger');
+        } finally {
+          setConfirmModal({ isOpen: false, title: '', message: '', confirmText: '', variant: 'danger', onConfirm: null, isLoading: false });
+        }
+      }
+    });
   };
 
   return (
@@ -523,6 +535,17 @@ export default function MyTeam() {
           />
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        isLoading={confirmModal.isLoading}
+      />
     </div>
   );
 }

@@ -116,7 +116,7 @@ exports.deleteAttachment = async (req, res, next) => {
 
     // RBAC: author can delete, OR manager/admin can delete
     const isUploader = attachment.uploadedBy.toString() === req.user._id.toString();
-    const isManagerOrAdmin = req.user.globalRole === 'admin' || req.boardRole === 'manager';
+    const isManagerOrAdmin = req.user.globalRole === 'admin' || req.user.globalRole === 'manager' || req.boardRole === 'manager' || req.boardRole === 'owner';
 
     if (!isUploader && !isManagerOrAdmin) {
       return res.status(403).json({ success: false, error: { message: 'Forbidden: Cannot delete this attachment' } });
