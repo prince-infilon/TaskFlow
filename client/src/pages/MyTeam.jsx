@@ -193,18 +193,30 @@ export default function MyTeam() {
 
   // Submit: Update member details
   const handleUpdateMember = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    setModalError('');
+    if (!formData.name?.trim() || !formData.email?.trim()) {
+      const msg = 'Please fill in both name and email address.';
+      setModalError(msg);
+      showToast(msg, 'danger');
+      return;
+    }
     try {
       setIsSubmitting(true);
       await apiClient.put(`/users/${selectedMember._id}`, {
-        name: formData.name,
-        email: formData.email
+        name: formData.name.trim(),
+        email: formData.email.trim()
       });
       showToast('Member profile updated successfully!');
       closeModal();
       fetchMyMembers();
     } catch (err) {
-      showToast(err.message || 'Failed to update member', 'danger');
+      const isDuplicate = err.message?.toLowerCase().includes('already exists') || err.message?.toLowerCase().includes('email');
+      const msg = isDuplicate 
+        ? 'An account with this email address already exists. Please use a different email address.' 
+        : (err.message || 'Failed to update member');
+      setModalError(msg);
+      showToast(msg, 'danger');
     } finally {
       setIsSubmitting(false);
     }
@@ -453,6 +465,11 @@ export default function MyTeam() {
         }
       >
         <form onSubmit={handleUpdateMember} className="space-y-4">
+          {modalError && (
+            <div className="text-small p-3 bg-danger-50 text-danger-600 rounded-md border border-danger-100 font-medium">
+              {modalError}
+            </div>
+          )}
           <Input
             label="Full Name"
             required

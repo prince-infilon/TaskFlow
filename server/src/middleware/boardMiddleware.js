@@ -46,6 +46,20 @@ exports.authorizeBoard = (...allowedBoardRoles) => {
         return next();
       }
 
+      // Members strictly ONLY have access to boards where they have assigned tasks or are board owner
+      if (req.user.globalRole === 'member') {
+        const isOwner = board.owner.toString() === req.user._id.toString();
+        const hasTaskOnBoard = await Task.exists({ board: board._id, assignee: req.user._id });
+
+        if (!isOwner && !hasTaskOnBoard) {
+          return res.status(404).json({ success: false, error: { message: 'Board not found.' } });
+        }
+
+        req.board = board;
+        req.boardRole = isOwner ? 'manager' : 'member';
+        return next();
+      }
+
       // Find user in members
       let member = board.members.find(m => m.user.toString() === req.user._id.toString());
 

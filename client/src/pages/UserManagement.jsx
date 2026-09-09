@@ -302,19 +302,31 @@ export default function UserManagement() {
   };
 
   const handleUpdateUser = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    setModalError('');
+    if (!formData.name?.trim() || !formData.email?.trim()) {
+      const msg = 'Please fill in both name and email address.';
+      setModalError(msg);
+      showToast(msg, 'danger');
+      return;
+    }
     try {
       setIsSubmitting(true);
       await apiClient.put(`/users/${selectedUser._id}`, {
-        name: formData.name,
-        email: formData.email
+        name: formData.name.trim(),
+        email: formData.email.trim()
       });
       showToast('User updated successfully!');
       closeModal();
       fetchUsers();
       fetchActiveManagers();
     } catch (err) {
-      showToast(err.message || 'Failed to update user', 'danger');
+      const isDuplicate = err.message?.toLowerCase().includes('already exists') || err.message?.toLowerCase().includes('email');
+      const msg = isDuplicate 
+        ? 'An account with this email address already exists. Please use a different email address.' 
+        : (err.message || 'Failed to update user');
+      setModalError(msg);
+      showToast(msg, 'danger');
     } finally {
       setIsSubmitting(false);
     }
@@ -902,6 +914,11 @@ export default function UserManagement() {
         }
       >
         <form onSubmit={handleUpdateUser} className="space-y-4">
+          {modalError && (
+            <div className="text-small p-3 bg-danger-50 text-danger-600 rounded-md border border-danger-100 font-medium">
+              {modalError}
+            </div>
+          )}
           <Input
             label="Full Name"
             required

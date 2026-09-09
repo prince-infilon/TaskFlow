@@ -17,14 +17,8 @@ exports.createBoard = async (req, res, next) => {
     // Enforce tier limits
     await checkBoardLimit(orgId);
 
-    // Automatically include manager's team members on initial board creation
-    let teamMembers = [];
-    if (req.user.globalRole === 'manager') {
-      teamMembers = await User.find({ managerId: req.user._id, isActive: true }).select('_id');
-    }
     const initialMembers = [
-      { user: req.user._id, role: 'manager' },
-      ...teamMembers.map(m => ({ user: m._id, role: 'member' }))
+      { user: req.user._id, role: req.user.globalRole === 'admin' ? 'admin' : 'manager' }
     ];
 
     const board = new Board({
@@ -64,6 +58,16 @@ exports.getBoards = async (req, res, next) => {
     let query;
     if (req.orgRole === 'admin' || req.user.globalRole === 'admin') {
       query = { organizationId: req.organization._id };
+    } else if (req.user.globalRole === 'member') {
+      // Members strictly ONLY see boards where they have assigned tasks or are board owner
+      const assignedTaskBoards = await Task.distinct('board', { assignee: req.user._id });
+      query = {
+        organizationId: req.organization._id,
+        $or: [
+          { owner: req.user._id },
+          { _id: { $in: assignedTaskBoards } }
+        ]
+      };
     } else {
       const assignedTaskBoards = await Task.distinct('board', { assignee: req.user._id });
 
@@ -73,8 +77,7 @@ exports.getBoards = async (req, res, next) => {
         { _id: { $in: assignedTaskBoards } }
       ];
 
-      // Only managers inherit managerId owner query
-      if (req.user.managerId && req.user.globalRole !== 'member') {
+      if (req.user.managerId) {
         orConditions.push({ owner: req.user.managerId });
       }
 

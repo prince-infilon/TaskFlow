@@ -449,37 +449,83 @@ const Board = () => {
 
       const handleTaskUpdated = (data) => {
         if (!data || !data.task) return;
-        const taskAssigneeId = data.task.assignee?._id?.toString() || data.task.assignee?.toString();
+        const updatedTask = data.task;
+        const taskId = (updatedTask._id || updatedTask.id)?.toString();
+        const taskAssigneeId = updatedTask.assignee?._id?.toString() || updatedTask.assignee?.toString() || updatedTask.assigneeId?.toString();
 
         if (isMember && taskAssigneeId !== user?._id?.toString()) {
           // If task is no longer assigned to this member, remove it from view
           setColumns(prev => prev.map(col => ({
             ...col,
-            tasks: col.tasks.filter(t => t.id !== data.task._id)
+            tasks: col.tasks.filter(t => (t.id || t._id)?.toString() !== taskId)
           })));
+          setSelectedTask(prev => {
+            if (prev && (prev.id?.toString() === taskId || prev._id?.toString() === taskId)) {
+              setIsDrawerOpen(false);
+              return null;
+            }
+            return prev;
+          });
           return;
         }
 
-        setColumns(prev => prev.map(col => {
-          const hasTask = col.tasks.some(t => t.id === data.task._id);
-          if (hasTask) {
+        // Update selectedTask if currently open in task drawer
+        setSelectedTask(prev => {
+          if (prev && (prev.id?.toString() === taskId || prev._id?.toString() === taskId)) {
             return {
-              ...col,
-              tasks: col.tasks.map(t => t.id === data.task._id ? {
-                ...t,
-                title: data.task.title,
-                description: data.task.description,
-                priority: data.task.priority,
-                startDate: data.task.startDate || '',
-                dueDate: data.task.dueDate || '',
-                subtasks: data.task.subtasks || [],
-                assignee: data.task.assignee?.name || null,
-                assigneeId: data.task.assignee?._id || null,
-              } : t)
+              ...prev,
+              ...updatedTask,
+              id: taskId,
+              title: updatedTask.title,
+              description: updatedTask.description,
+              priority: updatedTask.priority,
+              startDate: updatedTask.startDate || '',
+              dueDate: updatedTask.dueDate || '',
+              assignee: updatedTask.assignee?.name || (typeof updatedTask.assignee === 'string' ? updatedTask.assignee : prev.assignee),
+              assigneeId: updatedTask.assignee?._id || updatedTask.assigneeId || prev.assigneeId,
+              column: updatedTask.column,
+              columnId: (updatedTask.column && typeof updatedTask.column === 'object') ? updatedTask.column._id?.toString() : (updatedTask.column || updatedTask.columnId)?.toString()
             };
           }
-          return col;
-        }));
+          return prev;
+        });
+
+        const targetColId = (updatedTask.column && typeof updatedTask.column === 'object')
+          ? updatedTask.column._id?.toString()
+          : (updatedTask.column || updatedTask.columnId)?.toString();
+
+        setColumns(prevCols => {
+          const cleanedCols = prevCols.map(col => ({
+            ...col,
+            tasks: col.tasks.filter(t => (t.id || t._id)?.toString() !== taskId)
+          }));
+
+          const formattedTask = {
+            id: taskId,
+            title: updatedTask.title,
+            description: updatedTask.description,
+            priority: updatedTask.priority,
+            startDate: updatedTask.startDate || '',
+            dueDate: updatedTask.dueDate || '',
+            subtasks: updatedTask.subtasks || [],
+            attachments: updatedTask.attachments ? (Array.isArray(updatedTask.attachments) ? updatedTask.attachments.length : updatedTask.attachments) : 0,
+            comments: updatedTask.comments ? (Array.isArray(updatedTask.comments) ? updatedTask.comments.length : updatedTask.comments) : 0,
+            assignee: updatedTask.assignee?.name || (typeof updatedTask.assignee === 'string' ? updatedTask.assignee : null),
+            assigneeId: updatedTask.assignee?._id || updatedTask.assigneeId || null,
+            columnId: targetColId,
+            isOverdue: false
+          };
+
+          return cleanedCols.map(col => {
+            if (col.id?.toString() === targetColId) {
+              return {
+                ...col,
+                tasks: [...col.tasks, formattedTask]
+              };
+            }
+            return col;
+          });
+        });
       };
 
       const handleTaskMoved = (data) => {
@@ -748,6 +794,28 @@ const Board = () => {
     }
   };
 
+  const handleOpenEditTaskModal = (taskToEdit) => {
+    const task = taskToEdit || selectedTask;
+    if (!task) return;
+    const colId = (task.column && typeof task.column === 'object')
+      ? (task.column._id || task.column.id)
+      : (task.column || task.columnId || (columns.length > 0 ? columns[0].id : ''));
+    
+    const assigneeVal = task.assigneeId || (typeof task.assignee === 'object' ? task.assignee?._id : (boardMembers.find(m => m.name === task.assignee)?.id || ''));
+
+    setEditTaskForm({
+      title: task.title || '',
+      description: task.description || '',
+      priority: task.priority || 'medium',
+      assignee: assigneeVal || '',
+      startDate: task.startDate ? task.startDate.split('T')[0] : '',
+      dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
+      column: colId
+    });
+    setEditTaskFormError('');
+    setIsEditTaskModalOpen(true);
+  };
+
   const handleUpdateTask = async () => {
     if (!editTaskForm.title.trim()) {
       setEditTaskFormError('Task title is required.');
@@ -756,10 +824,13 @@ const Board = () => {
     setEditTaskFormError('');
     setIsEditingTask(true);
     try {
-      await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id}`, editTaskForm);
-      await fetchTasks(false);
+      const res = await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id || selectedTask._id}`, editTaskForm);
+      if (res?.data?.task) {
+        handleTaskUpdated({ task: res.data.task });
+      } else {
+        await fetchTasks(false);
+      }
       setIsEditTaskModalOpen(false);
-      setIsDrawerOpen(false);
     } catch (err) {
       setEditTaskFormError(err.message || 'Failed to update task');
     } finally {
@@ -909,7 +980,22 @@ const Board = () => {
     }
   };
 
+  const handleOpenEditBoardModal = () => {
+    if (board) {
+      setEditBoardForm({
+        name: board.name || '',
+        description: board.description || ''
+      });
+    }
+    setBoardError('');
+    setIsEditModalOpen(true);
+  };
+
   const handleEditBoard = async () => {
+    if (!editBoardForm.name?.trim()) {
+      setBoardError('Board name is required.');
+      return;
+    }
     setIsSavingBoard(true);
     setBoardError('');
     try {
@@ -1151,7 +1237,7 @@ const Board = () => {
                     variant="ghost" 
                     aria-label="Board settings" 
                     className="shrink-0 h-[32px] w-[32px]"
-                    onClick={() => setIsEditModalOpen(true)}
+                    onClick={handleOpenEditBoardModal}
                     title="Settings"
                   >
                     <Settings className="w-4 h-4" />
@@ -1575,18 +1661,7 @@ const Board = () => {
                 >
                   Delete Task
                 </Button>
-                <Button variant="secondary" onClick={() => {
-                  setEditTaskForm({
-                    title: selectedTask.title,
-                    description: selectedTask.description || '',
-                    priority: selectedTask.priority,
-                    assignee: selectedTask.assigneeId || '',
-                    startDate: selectedTask.startDate || '',
-                    dueDate: selectedTask.dueDate || '',
-                    column: selectedTask.columnId
-                  });
-                  setIsEditTaskModalOpen(true);
-                }}>
+                <Button variant="secondary" onClick={() => handleOpenEditTaskModal(selectedTask)}>
                   Edit Task
                 </Button>
               </div>

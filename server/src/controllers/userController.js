@@ -387,17 +387,31 @@ exports.createUser = async (req, res, next) => {
  */
 exports.updateUser = async (req, res, next) => {
   try {
-    const { name } = req.body;
-    if (name) req.targetUser.name = name.trim();
+    const { name, email } = req.body;
+    if (name && name.trim()) {
+      req.targetUser.name = name.trim();
+    }
+    if (email && email.trim() && email.trim().toLowerCase() !== req.targetUser.email) {
+      const newEmail = email.trim().toLowerCase();
+      const existing = await User.findOne({ email: newEmail, _id: { $ne: req.targetUser._id } });
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'An account with this email address already exists. Please use a different email address.' }
+        });
+      }
+      req.targetUser.email = newEmail;
+    }
 
     await req.targetUser.save();
+    await req.targetUser.populate('managerId', 'name email avatarUrl');
 
     await logActivity({
       userId: req.user._id,
       action: 'user_updated',
       entityType: 'user',
       entityId: req.targetUser._id,
-      metadata: { updatedFields: { name } }
+      metadata: { updatedFields: { name: req.targetUser.name, email: req.targetUser.email } }
     });
 
     broadcastUserEvent('user_updated', { user: req.targetUser });

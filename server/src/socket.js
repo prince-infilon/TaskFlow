@@ -96,14 +96,23 @@ const initializeSocket = (server) => {
         const Organization = require('./models/Organization');
         const org = await Organization.findById(board.organizationId);
 
-        const isOrgMember = org && org.members.some(m => m.user.toString() === socket.user._id.toString());
-        const isBoardMember = board.members && board.members.some(m => m.user.toString() === socket.user._id.toString());
         const isOwner = board.owner && board.owner.toString() === socket.user._id.toString();
-        const isManagerBoard = socket.user.managerId && board.owner && board.owner.toString() === socket.user.managerId.toString();
-        const isAdmin = socket.user.globalRole === 'admin';
         const hasTaskOnBoard = await Task.exists({ board: board._id, assignee: socket.user._id });
+        const isAdmin = socket.user.globalRole === 'admin';
 
-        const isAuthorized = isOrgMember || isBoardMember || isOwner || isManagerBoard || isAdmin || hasTaskOnBoard;
+        let isAuthorized = false;
+
+        if (socket.user.globalRole === 'member') {
+          // Members strictly ONLY have room access if they are board owner or have assigned tasks
+          isAuthorized = isOwner || hasTaskOnBoard;
+        } else {
+          const isOrgMember = org && org.members.some(m => m.user.toString() === socket.user._id.toString());
+          const isBoardMember = board.members && board.members.some(m => m.user.toString() === socket.user._id.toString());
+          const isManagerBoard = socket.user.managerId && board.owner && board.owner.toString() === socket.user.managerId.toString();
+
+          isAuthorized = isOrgMember || isBoardMember || isOwner || isManagerBoard || isAdmin || hasTaskOnBoard;
+        }
+
         if (!isAuthorized) {
           return socket.emit('error', { message: 'Unauthorized to join this board' });
         }
