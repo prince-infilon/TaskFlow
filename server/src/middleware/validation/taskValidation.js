@@ -75,11 +75,20 @@ exports.moveTaskValidation = [
   param('taskId')
     .isMongoId()
     .withMessage('Invalid task ID format'),
-  body('columnId')
-    .notEmpty()
-    .withMessage('Destination column ID is required')
+  body('column')
+    .optional()
     .isMongoId()
     .withMessage('Invalid column ID format'),
+  body('columnId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid column ID format'),
+  body().custom((value, { req }) => {
+    if (!req.body.column && !req.body.columnId) {
+      throw new Error('Destination column ID is required');
+    }
+    return true;
+  }),
   body('position')
     .notEmpty()
     .withMessage('Position is required')

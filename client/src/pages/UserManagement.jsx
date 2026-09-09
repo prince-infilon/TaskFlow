@@ -15,7 +15,8 @@ import {
   Search, 
   Edit2, 
   RefreshCw,
-  Plus
+  Plus,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
@@ -58,6 +59,7 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [preselectedManagerId, setPreselectedManagerId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   // Form states
   const [formData, setFormData] = useState({
@@ -194,11 +196,13 @@ export default function UserManagement() {
   // Modal openers
   const openAddAdminModal = () => {
     setFormData({ name: '', email: '', password: '', confirmPassword: '', managerId: '' });
+    setModalError('');
     setModalType('addAdmin');
   };
 
   const openAddManagerModal = () => {
     setFormData({ name: '', email: '', password: '', confirmPassword: '', managerId: '' });
+    setModalError('');
     setModalType('addManager');
   };
 
@@ -206,6 +210,7 @@ export default function UserManagement() {
     const defaultMgr = managerId || (activeManagers.length > 0 ? activeManagers[0]._id : '');
     setPreselectedManagerId(defaultMgr);
     setFormData({ name: '', email: '', password: '', confirmPassword: '', managerId: defaultMgr });
+    setModalError('');
     setModalType('addMember');
   };
 
@@ -218,6 +223,7 @@ export default function UserManagement() {
       confirmPassword: '',
       managerId: ''
     });
+    setModalError('');
     setModalType('edit');
   };
 
@@ -228,34 +234,44 @@ export default function UserManagement() {
     setFormData({
       managerId: otherManagers.length > 0 ? otherManagers[0]._id : ''
     });
+    setModalError('');
     setModalType('reassign');
   };
 
   const openResetPasswordModal = (targetUser) => {
     setSelectedUser(targetUser);
     setFormData({ newPassword: '', confirmPassword: '' });
+    setModalError('');
     setModalType('resetPassword');
   };
 
   const closeModal = () => {
     setModalType(null);
     setSelectedUser(null);
+    setModalError('');
     setIsSubmitting(false);
   };
 
   // Submit handlers
   const handleCreateUser = async (e, role) => {
     e.preventDefault();
+    setModalError('');
     if (!formData.name?.trim() || !formData.email?.trim() || !formData.password) {
-      showToast('Please fill in all required fields.', 'danger');
+      const msg = 'Please fill in all required fields.';
+      setModalError(msg);
+      showToast(msg, 'danger');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      showToast('Passwords do not match.', 'danger');
+      const msg = 'Passwords do not match.';
+      setModalError(msg);
+      showToast(msg, 'danger');
       return;
     }
     if (role === 'member' && !formData.managerId) {
-      showToast('Please select a manager for this member.', 'danger');
+      const msg = 'Please select a manager for this member.';
+      setModalError(msg);
+      showToast(msg, 'danger');
       return;
     }
 
@@ -274,7 +290,12 @@ export default function UserManagement() {
       fetchUsers();
       fetchActiveManagers();
     } catch (err) {
-      showToast(err.message || `Failed to create ${role}`, 'danger');
+      const isDuplicate = err.message?.toLowerCase().includes('already exists') || err.message?.toLowerCase().includes('email');
+      const msg = isDuplicate 
+        ? 'An account with this email address already exists. Please use a different email address.' 
+        : (err.message || `Failed to create ${role}`);
+      setModalError(msg);
+      showToast(msg, 'danger');
     } finally {
       setIsSubmitting(false);
     }
@@ -689,6 +710,12 @@ export default function UserManagement() {
         }
       >
         <form onSubmit={(e) => handleCreateUser(e, 'admin')} className="space-y-4">
+          {modalError && (
+            <div className="p-3 bg-danger-50 border border-danger-200 text-danger-600 rounded-md text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-danger-500" />
+              <span>{modalError}</span>
+            </div>
+          )}
           <p className="text-xs text-secondary">
             Administrators have global visibility, can provision managers/admins/members, and manage all organization settings.
           </p>
@@ -742,6 +769,12 @@ export default function UserManagement() {
         }
       >
         <form onSubmit={(e) => handleCreateUser(e, 'manager')} className="space-y-4">
+          {modalError && (
+            <div className="p-3 bg-danger-50 border border-danger-200 text-danger-600 rounded-md text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-danger-500" />
+              <span>{modalError}</span>
+            </div>
+          )}
           <p className="text-xs text-secondary">
             Managers can manage and view only their own assigned team members. They cannot see other teams or create other managers.
           </p>
@@ -795,6 +828,12 @@ export default function UserManagement() {
         }
       >
         <form onSubmit={(e) => handleCreateUser(e, 'member')} className="space-y-4">
+          {modalError && (
+            <div className="p-3 bg-danger-50 border border-danger-200 text-danger-600 rounded-md text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-danger-500" />
+              <span>{modalError}</span>
+            </div>
+          )}
           <Input
             label="Full Name"
             required

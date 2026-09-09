@@ -8,7 +8,8 @@ import {
   UserX, 
   Search, 
   Edit2, 
-  RefreshCw 
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
@@ -45,6 +46,7 @@ export default function MyTeam() {
   const [modalType, setModalType] = useState(null); // 'addMember', 'edit', 'resetPassword'
   const [selectedMember, setSelectedMember] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   // Form states
   const [formData, setFormData] = useState({
@@ -117,6 +119,7 @@ export default function MyTeam() {
   // Modal actions
   const openAddMemberModal = () => {
     setFormData({ name: '', email: '', password: '', confirmPassword: '', newPassword: '' });
+    setModalError('');
     setModalType('addMember');
   };
 
@@ -129,30 +132,38 @@ export default function MyTeam() {
       confirmPassword: '',
       newPassword: ''
     });
+    setModalError('');
     setModalType('edit');
   };
 
   const openResetPasswordModal = (member) => {
     setSelectedMember(member);
     setFormData({ newPassword: '', confirmPassword: '' });
+    setModalError('');
     setModalType('resetPassword');
   };
 
   const closeModal = () => {
     setModalType(null);
     setSelectedMember(null);
+    setModalError('');
     setIsSubmitting(false);
   };
 
   // Submit: Manager creates member (Manager ID is automatically set by backend to req.user._id)
   const handleCreateMember = async (e) => {
     e.preventDefault();
+    setModalError('');
     if (!formData.name?.trim() || !formData.email?.trim() || !formData.password) {
-      showToast('Please fill in all required fields.', 'danger');
+      const msg = 'Please fill in all required fields.';
+      setModalError(msg);
+      showToast(msg, 'danger');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      showToast('Passwords do not match.', 'danger');
+      const msg = 'Passwords do not match.';
+      setModalError(msg);
+      showToast(msg, 'danger');
       return;
     }
 
@@ -169,7 +180,12 @@ export default function MyTeam() {
       closeModal();
       fetchMyMembers();
     } catch (err) {
-      showToast(err.message || 'Failed to create member', 'danger');
+      const isDuplicate = err.message?.toLowerCase().includes('already exists') || err.message?.toLowerCase().includes('email');
+      const msg = isDuplicate 
+        ? 'An account with this email address already exists. Please use a different email address.' 
+        : (err.message || 'Failed to create member');
+      setModalError(msg);
+      showToast(msg, 'danger');
     } finally {
       setIsSubmitting(false);
     }
@@ -378,6 +394,12 @@ export default function MyTeam() {
         }
       >
         <form onSubmit={handleCreateMember} className="space-y-4">
+          {modalError && (
+            <div className="p-3 bg-danger-50 border border-danger-200 text-danger-600 rounded-md text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-danger-500" />
+              <span>{modalError}</span>
+            </div>
+          )}
           <p className="text-xs text-secondary">
             This new member will be automatically assigned under your management.
           </p>

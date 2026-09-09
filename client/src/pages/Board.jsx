@@ -241,6 +241,7 @@ const Board = () => {
   const [membersView, setMembersView] = useState('list'); // 'list' | 'invite'
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'member' });
   const [inviteError, setInviteError] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
   
   // Automations Modal State
   const [isAutomationsModalOpen, setIsAutomationsModalOpen] = useState(false);
@@ -346,7 +347,10 @@ const Board = () => {
         ] : newTasks;
 
         return prevCols.map(col => {
-          const colTasks = allTasks.filter(t => (t.column || t.columnId) === col.id).map(t => ({
+          const colTasks = allTasks.filter(t => {
+            const taskColId = (t.column && typeof t.column === 'object') ? t.column._id?.toString() : (t.column || t.columnId)?.toString();
+            return taskColId === col.id?.toString();
+          }).map(t => ({
             id: t._id || t.id,
             title: t.title,
             description: t.description,
@@ -358,7 +362,7 @@ const Board = () => {
             comments: t.comments || 0,
             assignee: t.assignee?.name || t.assignee || null,
             assigneeId: t.assignee?._id || t.assigneeId || null,
-            columnId: t.column || t.columnId,
+            columnId: (t.column && typeof t.column === 'object') ? t.column._id : (t.column || t.columnId),
             isOverdue: false
           }));
           
@@ -1733,11 +1737,11 @@ const Board = () => {
             </Button>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => setMembersView('list')}>
+              <Button variant="ghost" onClick={() => setMembersView('list')} disabled={isInviting}>
                 Back
               </Button>
-              <Button variant="primary" onClick={handleInvite}>
-                Send Invite
+              <Button variant="primary" onClick={handleInvite} isLoading={isInviting} disabled={isInviting}>
+                {isInviting ? 'Sending...' : 'Send Invite'}
               </Button>
             </>
           )

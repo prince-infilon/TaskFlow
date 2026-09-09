@@ -25,7 +25,11 @@ exports.errorHandler = (err, req, res, next) => {
   } else if (err.code === 11000) {
     statusCode = 409;
     const field = Object.keys(err.keyValue || {})[0] || 'Field';
-    message = `${field} already exists.`;
+    if (field.toLowerCase() === 'email') {
+      message = 'An account with this email address already exists. Please use a different email address.';
+    } else {
+      message = `${field} already exists.`;
+    }
   }
 
   // In production, mask unhandled 500 internal server error details

@@ -314,7 +314,7 @@ exports.createUser = async (req, res, next) => {
     if (existing) {
       return res.status(400).json({
         success: false,
-        error: { message: 'An account with this email already exists.' }
+        error: { message: 'An account with this email address already exists. Please use a different email address.' }
       });
     }
 

@@ -67,7 +67,7 @@ exports.register = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ success: false, error: { message: 'This email is already registered.' } });
+      return res.status(400).json({ success: false, error: { message: 'An account with this email address already exists. Please use a different email address.' } });
     }
 
     const saltRounds = 10;

@@ -297,7 +297,8 @@ exports.deleteTask = async (req, res, next) => {
 exports.moveTask = async (req, res, next) => {
   try {
     const { boardId, taskId } = req.params;
-    const { column, position } = req.body;
+    const column = req.body.column || req.body.columnId;
+    const { position } = req.body;
 
     const task = await Task.findOne({ _id: taskId, board: boardId });
     if (!task) {
