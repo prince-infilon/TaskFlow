@@ -96,7 +96,7 @@ exports.getBoardById = async (req, res, next) => {
   try {
     // Board is already loaded securely by authorizeBoard middleware
     const board = req.board;
-    res.status(200).json({ success: true, data: { board } });
+    res.status(200).json({ success: true, data: { board, organization: req.organization } });
   } catch (error) {
     next(error);
   }

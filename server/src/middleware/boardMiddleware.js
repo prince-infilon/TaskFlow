@@ -1,5 +1,6 @@
 const Board = require('../models/Board');
 const Task = require('../models/Task');
+const Organization = require('../models/Organization');
 
 exports.authorizeBoard = (...allowedBoardRoles) => {
   return async (req, res, next) => {
@@ -11,8 +12,31 @@ exports.authorizeBoard = (...allowedBoardRoles) => {
         return res.status(404).json({ success: false, error: { message: 'Board not found.' } });
       }
 
-      if (board.organizationId.toString() !== req.organization._id.toString()) {
-        return res.status(404).json({ success: false, error: { message: 'Board not found in this organization.' } });
+      // Check organization alignment and auto-scope if user has access to board's organization
+      if (!req.organization || board.organizationId.toString() !== req.organization._id.toString()) {
+        const boardOrg = await Organization.findById(board.organizationId);
+        if (boardOrg) {
+          let orgMember = boardOrg.members.find(m => m.user.toString() === req.user._id.toString());
+          
+          if (!orgMember && req.user.managerId) {
+            // Auto-add member to manager's organization if not present
+            const isManagerInOrg = boardOrg.members.some(m => m.user.toString() === req.user.managerId.toString()) || boardOrg.owner.toString() === req.user.managerId.toString();
+            if (isManagerInOrg) {
+              boardOrg.members.push({ user: req.user._id, role: 'member' });
+              await boardOrg.save();
+              orgMember = { user: req.user._id, role: 'member' };
+            }
+          }
+
+          if (orgMember || req.user.globalRole === 'admin') {
+            req.organization = boardOrg;
+            req.orgRole = orgMember ? orgMember.role : 'admin';
+          } else {
+            return res.status(404).json({ success: false, error: { message: 'Board not found in this organization.' } });
+          }
+        } else {
+          return res.status(404).json({ success: false, error: { message: 'Board not found.' } });
+        }
       }
 
       // Org admin or global admin skips board role checks completely

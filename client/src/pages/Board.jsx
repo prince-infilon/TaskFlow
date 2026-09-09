@@ -259,6 +259,9 @@ const Board = () => {
     try {
       const res = await apiClient.get(`/boards/${boardId}`);
       setBoard(res.data.board);
+      if (res.data.organization) {
+        localStorage.setItem('taskflow_active_org', JSON.stringify(res.data.organization));
+      }
       setEditBoardForm({
         name: res.data.board.name,
         description: res.data.board.description || ''
