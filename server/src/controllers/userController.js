@@ -64,25 +64,33 @@ exports.getMyTasks = async (req, res, next) => {
 
     const query = { assignee: req.user._id };
 
-    // Fetch tasks with pagination
-    const tasks = await Task.find(query)
+    // Fetch tasks
+    const allTasks = await Task.find(query)
       .sort({ dueDate: 1, priority: -1 })
-      .skip(skip)
-      .limit(limit)
       .populate('board', 'name')
       .populate('column', 'name');
 
-    const total = await Task.countDocuments(query);
+    // Filter out tasks whose board was deleted
+    const validTasks = allTasks.filter(t => t.board !== null && t.board !== undefined);
+    
+    // Purge any orphan tasks from MongoDB asynchronously if board no longer exists
+    const orphanTaskIds = allTasks.filter(t => t.board === null || t.board === undefined).map(t => t._id);
+    if (orphanTaskIds.length > 0) {
+      Task.deleteMany({ _id: { $in: orphanTaskIds } }).catch(err => console.error('Orphan cleanup error:', err));
+    }
+
+    const total = validTasks.length;
+    const paginatedTasks = validTasks.slice(skip, skip + limit);
 
     res.status(200).json({
       success: true,
       data: {
-        tasks,
+        tasks: paginatedTasks,
         pagination: {
           total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit)
+          totalPages: Math.ceil(total / limit) || 1
         }
       }
     });

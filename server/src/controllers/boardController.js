@@ -2,6 +2,8 @@ const Board = require('../models/Board');
 const User = require('../models/User');
 const Column = require('../models/Column');
 const Task = require('../models/Task');
+const Comment = require('../models/Comment');
+const Attachment = require('../models/Attachment');
 const Activity = require('../models/Activity');
 const { logActivity } = require('../services/activityService');
 const { broadcastBoardEvent } = require('../socket');
@@ -15,12 +17,22 @@ exports.createBoard = async (req, res, next) => {
     // Enforce tier limits
     await checkBoardLimit(orgId);
 
+    // Automatically include manager's team members on initial board creation
+    let teamMembers = [];
+    if (req.user.globalRole === 'manager') {
+      teamMembers = await User.find({ managerId: req.user._id, isActive: true }).select('_id');
+    }
+    const initialMembers = [
+      { user: req.user._id, role: 'manager' },
+      ...teamMembers.map(m => ({ user: m._id, role: 'member' }))
+    ];
+
     const board = new Board({
       name,
       description,
       organizationId: req.organization._id,
       owner: req.user._id,
-      members: [{ user: req.user._id, role: 'manager' }]
+      members: initialMembers
     });
 
     await board.save();
@@ -48,10 +60,27 @@ exports.createBoard = async (req, res, next) => {
 
 exports.getBoards = async (req, res, next) => {
   try {
-    // Org admins can see all boards in the org. Other org members only see boards they are invited to.
-    const query = req.orgRole === 'admin' 
-      ? { organizationId: req.organization._id } 
-      : { organizationId: req.organization._id, 'members.user': req.user._id };
+    let query;
+    if (req.orgRole === 'admin' || req.user.globalRole === 'admin') {
+      query = { organizationId: req.organization._id };
+    } else {
+      const assignedTaskBoards = await Task.distinct('board', { assignee: req.user._id });
+
+      const orConditions = [
+        { owner: req.user._id },
+        { 'members.user': req.user._id },
+        { _id: { $in: assignedTaskBoards } }
+      ];
+
+      if (req.user.managerId) {
+        orConditions.push({ owner: req.user.managerId });
+      }
+
+      query = {
+        organizationId: req.organization._id,
+        $or: orConditions
+      };
+    }
 
     const boards = await Board.find(query)
       .select('-members') // Exclude members list for overview
@@ -91,8 +120,23 @@ exports.updateBoard = async (req, res, next) => {
 exports.deleteBoard = async (req, res, next) => {
   try {
     const board = req.board;
-    await Board.deleteOne({ _id: board._id });
-    res.status(200).json({ success: true, data: { message: 'Board deleted successfully.' } });
+    const boardId = board._id;
+
+    // Find all tasks belonging to this board
+    const tasks = await Task.find({ board: boardId }).select('_id');
+    const taskIds = tasks.map(t => t._id);
+
+    if (taskIds.length > 0) {
+      await Comment.deleteMany({ task: { $in: taskIds } });
+      await Attachment.deleteMany({ task: { $in: taskIds } });
+      await Task.deleteMany({ board: boardId });
+    }
+
+    await Column.deleteMany({ board: boardId });
+    await Activity.deleteMany({ boardId: boardId });
+    await Board.deleteOne({ _id: boardId });
+
+    res.status(200).json({ success: true, data: { message: 'Board and all associated tasks deleted successfully.' } });
   } catch (error) {
     next(error);
   }

@@ -109,11 +109,12 @@ exports.createTask = async (req, res, next) => {
       return res.status(400).json({ success: false, error: { message: 'Invalid column' } });
     }
 
-    // If assignee provided, validate they belong to board
+    // If assignee provided, automatically include them in board members if not present
     if (assignee) {
-      const isMember = req.board.members.find(m => m.user.toString() === assignee);
-      if (!isMember && req.user.globalRole !== 'admin') {
-        return res.status(400).json({ success: false, error: { message: 'Assignee is not a member of this board' } });
+      const isMember = req.board.members.find(m => m.user.toString() === assignee.toString());
+      if (!isMember) {
+        req.board.members.push({ user: assignee, role: 'member' });
+        await req.board.save();
       }
     }
 
@@ -194,11 +195,12 @@ exports.updateTask = async (req, res, next) => {
       }
     }
 
-    // Validate new assignee if changed
+    // If new assignee provided, automatically include them in board members if not present
     if (updates.assignee && updates.assignee !== task.assignee?.toString()) {
-      const isMember = req.board.members.find(m => m.user.toString() === updates.assignee);
-      if (!isMember && req.user.globalRole !== 'admin') {
-        return res.status(400).json({ success: false, error: { message: 'Assignee is not a member of this board' } });
+      const isMember = req.board.members.find(m => m.user.toString() === updates.assignee.toString());
+      if (!isMember) {
+        req.board.members.push({ user: updates.assignee, role: 'member' });
+        await req.board.save();
       }
     }
 

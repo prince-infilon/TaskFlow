@@ -71,7 +71,12 @@ const MyTasks = () => {
                   key={task._id} 
                   hoverable 
                   className="cursor-pointer flex flex-col h-full"
-                  onClick={() => navigate(`/app/boards/${task.board?._id}`)}
+                  onClick={() => {
+                    const targetBoardId = task.board?._id || (typeof task.board === 'string' ? task.board : null);
+                    if (targetBoardId) {
+                      navigate(`/app/boards/${targetBoardId}`);
+                    }
+                  }}
                 >
                   <CardContent className="p-4 flex flex-col flex-1 gap-3">
                     <div className="flex justify-between items-start">
@@ -79,7 +84,7 @@ const MyTasks = () => {
                         {task.priority}
                       </Badge>
                       <span className="text-[10px] font-medium text-tertiary uppercase tracking-wider bg-surface-muted px-2 py-0.5 rounded truncate max-w-[120px]">
-                        {task.board?.name || 'Unknown Board'}
+                        {task.board?.name || 'Board'}
                       </span>
                     </div>
 
