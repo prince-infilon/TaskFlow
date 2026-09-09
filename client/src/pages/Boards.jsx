@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
+import { socket, connectSocket } from '../api/socket';
+import { useAuth } from '../context/AuthContext';
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
 import Avatar, { AvatarGroup } from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
@@ -9,6 +11,8 @@ import Input from '../components/ui/Input';
 import { Plus } from 'lucide-react';
 
 const Boards = () => {
+  const { user } = useAuth();
+  const isMember = user?.globalRole === 'member';
   const [boards, setBoards] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -32,6 +36,25 @@ const Boards = () => {
 
   useEffect(() => {
     fetchBoards();
+
+    const token = localStorage.getItem('taskflow_token');
+    if (token) {
+      connectSocket(token);
+
+      const handleBoardSync = () => {
+        fetchBoards();
+      };
+
+      socket.on('board_created', handleBoardSync);
+      socket.on('board_updated', handleBoardSync);
+      socket.on('board_deleted', handleBoardSync);
+
+      return () => {
+        socket.off('board_created', handleBoardSync);
+        socket.off('board_updated', handleBoardSync);
+        socket.off('board_deleted', handleBoardSync);
+      };
+    }
   }, []);
 
   const handleCreateBoard = async () => {
@@ -61,10 +84,12 @@ const Boards = () => {
           <h1 className="text-display text-primary tracking-tight">Boards</h1>
           <p className="text-small text-secondary mt-1">Manage your projects and workspaces.</p>
         </div>
-        <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Board
-        </Button>
+        {!isMember && (
+          <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Board
+          </Button>
+        )}
       </section>
 
       <section>
@@ -72,12 +97,16 @@ const Boards = () => {
           <div className="text-small text-tertiary">Loading boards...</div>
         ) : boards.length === 0 ? (
           <div className="text-center py-12 border-2 border-dashed border-border rounded-lg bg-surface">
-            <h3 className="text-h3 text-primary mb-2">No boards yet</h3>
-            <p className="text-body text-secondary mb-4">Create your first board to get started.</p>
-            <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Board
-            </Button>
+            <h3 className="text-h3 text-primary mb-2">No boards assigned</h3>
+            <p className="text-body text-secondary mb-4">
+              {isMember ? 'You do not have any boards assigned to you yet.' : 'Create your first board to get started.'}
+            </p>
+            {!isMember && (
+              <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Board
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

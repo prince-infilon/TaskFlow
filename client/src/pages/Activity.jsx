@@ -3,6 +3,7 @@ import { Clock } from 'lucide-react';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import apiClient from '../api/client';
+import { socket, connectSocket } from '../api/socket';
 
 const getActionMessage = (act) => {
   const meta = act.metadata || {};
@@ -60,45 +61,76 @@ const Activity = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchActivity = async () => {
-      try {
-        setIsLoading(true);
-        setError('');
-        let boardId = localStorage.getItem('lastOpenedBoardId');
-        if (!boardId) {
-          const boardsRes = await apiClient.get('/boards');
-          const boardList = boardsRes.data?.boards || boardsRes.boards || [];
-          if (boardList.length > 0) {
-            boardId = boardList[0]._id;
-            localStorage.setItem('lastOpenedBoardId', boardId);
-          } else {
-            setError('No boards found. Create a board to view activity.');
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        const res = await apiClient.get(`/boards/${boardId}/activity?page=${page}&limit=50`);
-        if (page === 1) {
-          setActivities(res.data.activities);
+  const fetchActivity = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      let boardId = localStorage.getItem('lastOpenedBoardId');
+      if (!boardId) {
+        const boardsRes = await apiClient.get('/boards');
+        const boardList = boardsRes.data?.boards || boardsRes.boards || [];
+        if (boardList.length > 0) {
+          boardId = boardList[0]._id;
+          localStorage.setItem('lastOpenedBoardId', boardId);
         } else {
-          setActivities(prev => [...prev, ...res.data.activities]);
+          setError('No boards found. Create a board to view activity.');
+          setIsLoading(false);
+          return;
         }
-        
-        setHasMore(res.data.pagination.page < res.data.pagination.totalPages);
-      } catch (err) {
-        if (err.status === 401 || err.status === 403 || err.status === 404) {
-          setError(err.message || 'Access denied.');
-        } else {
-          setError('Failed to load activity');
-        }
-      } finally {
-        setIsLoading(false);
       }
-    };
-    
+
+      const res = await apiClient.get(`/boards/${boardId}/activity?page=${page}&limit=50`);
+      if (page === 1) {
+        setActivities(res.data.activities);
+      } else {
+        setActivities(prev => [...prev, ...res.data.activities]);
+      }
+      
+      setHasMore(res.data.pagination.page < res.data.pagination.totalPages);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403 || err.status === 404) {
+        setError(err.message || 'Access denied.');
+      } else {
+        setError('Failed to load activity');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchActivity();
+
+    const token = localStorage.getItem('taskflow_token');
+    if (token) {
+      connectSocket(token);
+
+      const boardId = localStorage.getItem('lastOpenedBoardId');
+      if (boardId) {
+        const joinBoardRoom = () => socket.emit('join_board', boardId);
+        if (socket.connected) {
+          joinBoardRoom();
+        }
+        socket.on('connect', joinBoardRoom);
+      }
+
+      const handleRealtimeActivity = () => {
+        fetchActivity();
+      };
+
+      const events = [
+        'task_created', 'task_updated', 'task_moved', 'task_deleted',
+        'comment_created', 'comment_deleted', 'attachment_uploaded',
+        'attachment_deleted', 'board_created', 'board_updated', 'board_deleted',
+        'member_added', 'member_role_changed', 'member_removed'
+      ];
+
+      events.forEach(ev => socket.on(ev, handleRealtimeActivity));
+
+      return () => {
+        events.forEach(ev => socket.off(ev, handleRealtimeActivity));
+      };
+    }
   }, [page]);
 
   const groupedActivities = activities.reduce((acc, curr) => {

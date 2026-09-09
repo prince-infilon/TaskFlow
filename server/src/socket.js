@@ -7,10 +7,28 @@ let io;
 // Map: boardId -> Map(userId -> { user data, connections: Set(socketIds) })
 const presence = new Map();
 
+const parseOrigins = (val) => {
+  if (!val) return [];
+  return val.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+};
+
 const initializeSocket = (server) => {
+  const allowedSocketOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    ...parseOrigins(process.env.CORS_ORIGIN),
+    ...parseOrigins(process.env.CLIENT_URL)
+  ];
+
   io = new Server(server, {
     cors: {
-      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+      origin: (origin, callback) => {
+        if (!origin || allowedSocketOrigins.includes(origin) || (origin && (origin.endsWith('.vercel.app') || origin.includes('vercel.app')))) {
+          callback(null, true);
+        } else {
+          callback(null, true);
+        }
+      },
       methods: ['GET', 'POST'],
       credentials: true
     }
@@ -70,17 +88,24 @@ const initializeSocket = (server) => {
       try {
         if (!boardId) return;
 
-        // Verify authorization via Organization
+        // Verify authorization via Board membership, ownership, team status, or task assignment
         const board = await Board.findById(boardId);
         if (!board) return socket.emit('error', { message: 'Board not found' });
 
+        const Task = require('./models/Task');
         const Organization = require('./models/Organization');
         const org = await Organization.findById(board.organizationId);
-        if (!org) return socket.emit('error', { message: 'Organization not found' });
 
-        const isOrgMember = org.members.some(m => m.user.toString() === socket.user._id.toString());
-        if (!isOrgMember) {
-          return socket.emit('error', { message: 'Unauthorized to join this board in this organization' });
+        const isOrgMember = org && org.members.some(m => m.user.toString() === socket.user._id.toString());
+        const isBoardMember = board.members && board.members.some(m => m.user.toString() === socket.user._id.toString());
+        const isOwner = board.owner && board.owner.toString() === socket.user._id.toString();
+        const isManagerBoard = socket.user.managerId && board.owner && board.owner.toString() === socket.user.managerId.toString();
+        const isAdmin = socket.user.globalRole === 'admin';
+        const hasTaskOnBoard = await Task.exists({ board: board._id, assignee: socket.user._id });
+
+        const isAuthorized = isOrgMember || isBoardMember || isOwner || isManagerBoard || isAdmin || hasTaskOnBoard;
+        if (!isAuthorized) {
+          return socket.emit('error', { message: 'Unauthorized to join this board' });
         }
 
         // Leave previous board if any

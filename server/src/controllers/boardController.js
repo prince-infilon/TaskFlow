@@ -6,7 +6,7 @@ const Comment = require('../models/Comment');
 const Attachment = require('../models/Attachment');
 const Activity = require('../models/Activity');
 const { logActivity } = require('../services/activityService');
-const { broadcastBoardEvent } = require('../socket');
+const { broadcastBoardEvent, broadcastUserEvent } = require('../socket');
 const { checkBoardLimit } = require('../services/limitService');
 
 exports.createBoard = async (req, res, next) => {
@@ -52,6 +52,7 @@ exports.createBoard = async (req, res, next) => {
       metadata: { boardName: board.name }
     });
 
+    broadcastUserEvent('board_created', { board });
     res.status(201).json({ success: true, data: { board } });
   } catch (error) {
     next(error);
@@ -72,7 +73,8 @@ exports.getBoards = async (req, res, next) => {
         { _id: { $in: assignedTaskBoards } }
       ];
 
-      if (req.user.managerId) {
+      // Only managers inherit managerId owner query
+      if (req.user.managerId && req.user.globalRole !== 'member') {
         orConditions.push({ owner: req.user.managerId });
       }
 
@@ -107,10 +109,16 @@ exports.updateBoard = async (req, res, next) => {
     const { name, description } = req.body;
     const board = req.board;
 
+    if (req.boardRole === 'member' && req.user.globalRole !== 'admin') {
+      return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot edit boards.' } });
+    }
+
     if (name !== undefined) board.name = name;
     if (description !== undefined) board.description = description;
 
     await board.save();
+    broadcastBoardEvent(board._id, 'board_updated', { board });
+    broadcastUserEvent('board_updated', { board });
     res.status(200).json({ success: true, data: { board } });
   } catch (error) {
     next(error);
@@ -121,6 +129,10 @@ exports.deleteBoard = async (req, res, next) => {
   try {
     const board = req.board;
     const boardId = board._id;
+
+    if (req.boardRole === 'member' && req.user.globalRole !== 'admin') {
+      return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot delete boards.' } });
+    }
 
     // Find all tasks belonging to this board
     const tasks = await Task.find({ board: boardId }).select('_id');
@@ -136,6 +148,8 @@ exports.deleteBoard = async (req, res, next) => {
     await Activity.deleteMany({ boardId: boardId });
     await Board.deleteOne({ _id: boardId });
 
+    broadcastBoardEvent(boardId, 'board_deleted', { boardId });
+    broadcastUserEvent('board_deleted', { boardId });
     res.status(200).json({ success: true, data: { message: 'Board and all associated tasks deleted successfully.' } });
   } catch (error) {
     next(error);
@@ -147,6 +161,10 @@ exports.addMember = async (req, res, next) => {
   try {
     const { email, role } = req.body;
     const board = req.board;
+
+    if (req.boardRole === 'member' && req.user.globalRole !== 'admin') {
+      return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot add people to boards.' } });
+    }
 
     const userToAdd = await User.findOne({ email: email.toLowerCase() });
     if (!userToAdd) {
@@ -195,6 +213,10 @@ exports.updateMemberRole = async (req, res, next) => {
     const { role } = req.body;
     const board = req.board;
 
+    if (req.boardRole === 'member' && req.user.globalRole !== 'admin') {
+      return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot update member roles.' } });
+    }
+
     const member = board.members.find(m => m.user.toString() === userId);
     if (!member) {
       return res.status(404).json({ success: false, error: { message: 'Member not found on this board.' } });
@@ -223,6 +245,10 @@ exports.removeMember = async (req, res, next) => {
   try {
     const { userId } = req.params;
     const board = req.board;
+
+    if (req.boardRole === 'member' && req.user.globalRole !== 'admin') {
+      return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot remove members from boards.' } });
+    }
 
     const memberIndex = board.members.findIndex(m => m.user.toString() === userId);
     if (memberIndex === -1) {

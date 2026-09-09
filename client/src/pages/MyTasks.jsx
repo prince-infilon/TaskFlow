@@ -5,6 +5,7 @@ import Card, { CardContent } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { Calendar, Paperclip, MessageSquare } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { socket, connectSocket } from '../api/socket';
 
 const MyTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -40,6 +41,27 @@ const MyTasks = () => {
 
   useEffect(() => {
     fetchTasks();
+
+    const token = localStorage.getItem('taskflow_token');
+    if (token) {
+      connectSocket(token);
+
+      const handleRealtimeSync = () => {
+        fetchTasks(false);
+      };
+
+      socket.on('task_created', handleRealtimeSync);
+      socket.on('task_updated', handleRealtimeSync);
+      socket.on('task_moved', handleRealtimeSync);
+      socket.on('task_deleted', handleRealtimeSync);
+
+      return () => {
+        socket.off('task_created', handleRealtimeSync);
+        socket.off('task_updated', handleRealtimeSync);
+        socket.off('task_moved', handleRealtimeSync);
+        socket.off('task_deleted', handleRealtimeSync);
+      };
+    }
   }, []);
 
   if (isLoading && tasks.length === 0) {

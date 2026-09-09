@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { socket, connectSocket } from '../api/socket';
 import { Calendar } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Avatar, { AvatarGroup } from '../components/ui/Avatar';
@@ -53,6 +54,29 @@ const Dashboard = () => {
       }
     };
     fetchDashboard();
+
+    const token = localStorage.getItem('taskflow_token');
+    if (token) {
+      connectSocket(token);
+
+      socket.on('task_created', fetchDashboard);
+      socket.on('task_updated', fetchDashboard);
+      socket.on('task_moved', fetchDashboard);
+      socket.on('task_deleted', fetchDashboard);
+      socket.on('board_created', fetchDashboard);
+      socket.on('board_updated', fetchDashboard);
+      socket.on('board_deleted', fetchDashboard);
+
+      return () => {
+        socket.off('task_created', fetchDashboard);
+        socket.off('task_updated', fetchDashboard);
+        socket.off('task_moved', fetchDashboard);
+        socket.off('task_deleted', fetchDashboard);
+        socket.off('board_created', fetchDashboard);
+        socket.off('board_updated', fetchDashboard);
+        socket.off('board_deleted', fetchDashboard);
+      };
+    }
   }, []);
 
   return (

@@ -18,6 +18,11 @@ exports.getTasks = async (req, res, next) => {
 
     const filter = { board: boardId };
 
+    // Members should strictly ONLY see tasks assigned to them
+    if (req.user.globalRole === 'member' || req.boardRole === 'member') {
+      filter.assignee = req.user._id;
+    }
+
     if (search && typeof search === 'string' && search.trim().length > 0) {
       const safeSearch = escapeRegex(search.trim().slice(0, 200));
       filter.$or = [
@@ -61,6 +66,11 @@ exports.getTasks = async (req, res, next) => {
       // Anything else (including objects, $operators) is silently ignored
     }
 
+    // Members MUST strictly ONLY see tasks assigned to themselves
+    if ((req.user.globalRole === 'member' || req.boardRole === 'member') && req.user.globalRole !== 'admin') {
+      filter.assignee = req.user._id;
+    }
+
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     let limitNum = parseInt(limit, 10) || 50;
     if (limitNum > 100) limitNum = 100;
@@ -97,6 +107,11 @@ exports.createTask = async (req, res, next) => {
   try {
     const { boardId } = req.params;
     const { column, title, description, startDate, dueDate, assignee, priority, position, subtasks } = req.body;
+
+    // Members cannot create tasks
+    if (req.boardRole === 'member' && req.user.globalRole !== 'admin') {
+      return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot create tasks.' } });
+    }
 
     // Validate required fields early
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
@@ -169,6 +184,13 @@ exports.getTaskById = async (req, res, next) => {
     if (!task) {
       return res.status(404).json({ success: false, error: { message: 'Task not found' } });
     }
+
+    if ((req.user.globalRole === 'member' || req.boardRole === 'member') && req.user.globalRole !== 'admin') {
+      const taskAssigneeId = task.assignee?._id?.toString() || task.assignee?.toString();
+      if (taskAssigneeId !== req.user._id.toString()) {
+        return res.status(404).json({ success: false, error: { message: 'Task not found' } });
+      }
+    }
     
     res.status(200).json({ success: true, data: { task } });
   } catch (error) {
@@ -186,12 +208,24 @@ exports.updateTask = async (req, res, next) => {
       return res.status(404).json({ success: false, error: { message: 'Task not found' } });
     }
 
-    // RBAC logic for members: can only edit if they are the assignee
+    // RBAC logic for members: can only update status/subtasks for assigned tasks, cannot edit task details
     if (req.boardRole === 'member' && req.user.globalRole !== 'admin') {
       const isAssignee = task.assignee && task.assignee.toString() === req.user._id.toString();
       
       if (!isAssignee) {
-        return res.status(403).json({ success: false, error: { message: 'Forbidden: You can only edit tasks assigned to you' } });
+        return res.status(403).json({ success: false, error: { message: 'Forbidden: You can only update tasks assigned to you' } });
+      }
+
+      const restrictedKeys = ['title', 'description', 'startDate', 'dueDate', 'assignee', 'priority'];
+      const attemptedRestricted = Object.keys(updates).some(k => 
+        restrictedKeys.includes(k) && 
+        updates[k] !== undefined && 
+        updates[k] !== task[k]?.toString() && 
+        updates[k] !== task[k]
+      );
+
+      if (attemptedRestricted) {
+        return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot edit task details (title, description, dates, priority, assignee)' } });
       }
     }
 

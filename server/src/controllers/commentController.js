@@ -93,6 +93,7 @@ exports.updateComment = async (req, res, next) => {
     await comment.save();
     await comment.populate('author', 'name email avatarUrl');
 
+    broadcastBoardEvent(boardId, 'comment_updated', { taskId, comment });
     res.status(200).json({ success: true, data: { comment } });
   } catch (error) {
     next(error);

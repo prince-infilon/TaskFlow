@@ -37,7 +37,7 @@ import apiClient from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { socket, connectSocket, disconnectSocket } from '../api/socket';
 
-const KanbanColumn = ({ title, count, statusColor, tasks, columnId, onTaskClick }) => {
+const KanbanColumn = ({ title, count, statusColor, tasks, columnId, onTaskClick, isMember }) => {
   const { setNodeRef } = useDroppable({
     id: columnId,
     data: { type: 'Column', columnId }
@@ -52,9 +52,11 @@ const KanbanColumn = ({ title, count, statusColor, tasks, columnId, onTaskClick 
           <h3 className="text-[12px] text-secondary font-bold uppercase tracking-wider">{title}</h3>
           <span className="text-[12px] text-tertiary font-medium ml-1">{count}</span>
         </div>
-        <IconButton variant="ghost" className="w-6 h-6" aria-label={`Add task to ${title}`}>
-          <Plus className="w-4 h-4" />
-        </IconButton>
+        {!isMember && (
+          <IconButton variant="ghost" className="w-6 h-6" aria-label={`Add task to ${title}`}>
+            <Plus className="w-4 h-4" />
+          </IconButton>
+        )}
       </div>
       
       {/* Scrollable area for tasks */}
@@ -175,7 +177,8 @@ const TaskCard = ({ task, isDone, onClick }) => {
 
 const Board = () => {
   const { boardId } = useParams();
-  const { token } = useAuth();
+  const { user, token } = useAuth();
+  const isMember = user?.globalRole === 'member';
   
   const navigate = useNavigate();
   const [board, setBoard] = useState(null);
@@ -393,7 +396,16 @@ const Board = () => {
   useEffect(() => {
     if (token && boardId) {
       connectSocket(token);
-      socket.emit('join_board', boardId);
+
+      const joinBoardRoom = () => {
+        socket.emit('join_board', boardId);
+      };
+
+      if (socket.connected) {
+        joinBoardRoom();
+      }
+
+      socket.on('connect', joinBoardRoom);
 
       const triggerTaskUpdate = () => setSocketSignal({ type: 'task', timestamp: Date.now() });
       const triggerBoardUpdate = () => setSocketSignal({ type: 'board', timestamp: Date.now() });
@@ -402,8 +414,19 @@ const Board = () => {
       // Socket Handlers - update local state directly for speed
       const handleTaskCreated = (data) => {
         if (!data || !data.task) return;
+        const taskAssigneeId = data.task.assignee?._id?.toString() || data.task.assignee?.toString();
+        // Members must strictly ONLY see tasks assigned to them
+        if (isMember && taskAssigneeId !== user?._id?.toString()) {
+          return;
+        }
+
+        const targetColId = (data.task.column && typeof data.task.column === 'object') ? data.task.column._id?.toString() : (data.task.column || data.task.columnId)?.toString();
+
         setColumns(prev => prev.map(col => {
-          if (col.id === (data.task.column?._id || data.task.column)) {
+          if (col.id?.toString() === targetColId) {
+            const exists = col.tasks.some(t => t.id === data.task._id);
+            if (exists) return col;
+
             const newTask = {
               id: data.task._id,
               title: data.task.title,
@@ -426,6 +449,17 @@ const Board = () => {
 
       const handleTaskUpdated = (data) => {
         if (!data || !data.task) return;
+        const taskAssigneeId = data.task.assignee?._id?.toString() || data.task.assignee?.toString();
+
+        if (isMember && taskAssigneeId !== user?._id?.toString()) {
+          // If task is no longer assigned to this member, remove it from view
+          setColumns(prev => prev.map(col => ({
+            ...col,
+            tasks: col.tasks.filter(t => t.id !== data.task._id)
+          })));
+          return;
+        }
+
         setColumns(prev => prev.map(col => {
           const hasTask = col.tasks.some(t => t.id === data.task._id);
           if (hasTask) {
@@ -450,34 +484,46 @@ const Board = () => {
 
       const handleTaskMoved = (data) => {
         if (!data || !data.task) return;
-        // onDragOver handles local user dragging optimistically, 
-        // this only updates if another user moved it or on refresh.
-        // To avoid mismatch during active drag, we ignore socket moves for the active task.
+        const targetTask = data.task;
+        const targetTaskId = targetTask._id || targetTask.id;
+        const taskAssigneeId = targetTask.assignee?._id?.toString() || targetTask.assignee?.toString();
+
+        if (isMember && taskAssigneeId !== user?._id?.toString()) {
+          setColumns(prev => prev.map(col => ({
+            ...col,
+            tasks: col.tasks.filter(t => t.id !== targetTaskId)
+          })));
+          return;
+        }
+
+        const targetColId = (targetTask.column && typeof targetTask.column === 'object') ? targetTask.column._id?.toString() : (targetTask.column || targetTask.columnId)?.toString();
+
         setColumns(prev => {
-          let oldColIndex = -1;
-          let taskIndex = -1;
-          prev.forEach((col, i) => {
-            const idx = col.tasks.findIndex(t => t.id === data.task._id);
-            if (idx !== -1) {
-              oldColIndex = i;
-              taskIndex = idx;
-            }
+          let movedItem = null;
+          const cleanedCols = prev.map(col => {
+            const match = col.tasks.find(t => t.id === targetTaskId);
+            if (match) movedItem = match;
+            return { ...col, tasks: col.tasks.filter(t => t.id !== targetTaskId) };
           });
 
-          if (oldColIndex === -1) return prev; // Task not in current view
-          const newColId = data.task.column?._id || data.task.column;
-          if (prev[oldColIndex].id === newColId) return prev; // Handled locally or no col change
-
-          const newCols = [...prev];
-          const [movedTask] = newCols[oldColIndex].tasks.splice(taskIndex, 1);
-          movedTask.columnId = newColId;
-          
-          const newColIndex = newCols.findIndex(c => c.id === newColId);
-          if (newColIndex !== -1) {
-            newCols[newColIndex].tasks.splice(data.task.position || newCols[newColIndex].tasks.length, 0, movedTask);
+          if (!movedItem) {
+            return prev;
           }
-          
-          return newCols;
+
+          const updatedItem = {
+            ...movedItem,
+            columnId: targetColId
+          };
+
+          return cleanedCols.map(col => {
+            if (col.id?.toString() === targetColId) {
+              const newTasks = [...col.tasks];
+              const pos = typeof targetTask.position === 'number' ? targetTask.position : newTasks.length;
+              newTasks.splice(pos, 0, updatedItem);
+              return { ...col, tasks: newTasks };
+            }
+            return col;
+          });
         });
       };
 
@@ -498,18 +544,29 @@ const Board = () => {
       socket.on('member_removed', triggerBothUpdate);
       socket.on('member_role_changed', triggerBoardUpdate);
       
-      socket.on('comment_created', handleTaskUpdated);
-      socket.on('comment_deleted', handleTaskUpdated);
-      socket.on('attachment_uploaded', handleTaskUpdated);
-      socket.on('attachment_deleted', handleTaskUpdated);
-      
-      // Activity is logged silently but we can update if needed, though tasks update is usually enough
+      socket.on('comment_created', (data) => {
+        handleTaskUpdated(data);
+        triggerTaskUpdate();
+      });
+      socket.on('comment_deleted', (data) => {
+        handleTaskUpdated(data);
+        triggerTaskUpdate();
+      });
+      socket.on('attachment_uploaded', (data) => {
+        handleTaskUpdated(data);
+        triggerTaskUpdate();
+      });
+      socket.on('attachment_deleted', (data) => {
+        handleTaskUpdated(data);
+        triggerTaskUpdate();
+      });
       
       socket.on('presence_update', (users) => {
         setOnlineUsers(users);
       });
 
       return () => {
+        socket.off('connect', joinBoardRoom);
         socket.emit('leave_board', boardId);
         socket.off('task_created', handleTaskCreated);
         socket.off('task_updated', handleTaskUpdated);
@@ -518,10 +575,10 @@ const Board = () => {
         socket.off('member_added', triggerBothUpdate);
         socket.off('member_removed', triggerBothUpdate);
         socket.off('member_role_changed', triggerBoardUpdate);
-        socket.off('comment_created', handleTaskUpdated);
-        socket.off('comment_deleted', handleTaskUpdated);
-        socket.off('attachment_uploaded', handleTaskUpdated);
-        socket.off('attachment_deleted', handleTaskUpdated);
+        socket.off('comment_created');
+        socket.off('comment_deleted');
+        socket.off('attachment_uploaded');
+        socket.off('attachment_deleted');
         socket.off('presence_update');
         disconnectSocket();
       };
@@ -1073,30 +1130,34 @@ const Board = () => {
 
               <div className="hidden sm:flex border-l border-border h-6 mx-1" />
 
-              <Button variant="primary" size="sm" className="shrink-0" onClick={() => setIsModalOpen(true)}>
-                <Plus className="w-4 h-4 mr-1.5" />
-                Add Task
-              </Button>
-              
-              <IconButton 
-                variant="ghost" 
-                aria-label="Automations" 
-                className="shrink-0 h-[32px] w-[32px] text-accent-500 hover:bg-accent-50"
-                onClick={() => setIsAutomationsModalOpen(true)}
-                title="Automations"
-              >
-                <Zap className="w-4 h-4" />
-              </IconButton>
-              
-              <IconButton 
-                variant="ghost" 
-                aria-label="Board settings" 
-                className="shrink-0 h-[32px] w-[32px]"
-                onClick={() => setIsEditModalOpen(true)}
-                title="Settings"
-              >
-                <Settings className="w-4 h-4" />
-              </IconButton>
+              {!isMember && (
+                <>
+                  <Button variant="primary" size="sm" className="shrink-0" onClick={() => setIsModalOpen(true)}>
+                    <Plus className="w-4 h-4 mr-1.5" />
+                    Add Task
+                  </Button>
+                  
+                  <IconButton 
+                    variant="ghost" 
+                    aria-label="Automations" 
+                    className="shrink-0 h-[32px] w-[32px] text-accent-500 hover:bg-accent-50"
+                    onClick={() => setIsAutomationsModalOpen(true)}
+                    title="Automations"
+                  >
+                    <Zap className="w-4 h-4" />
+                  </IconButton>
+                  
+                  <IconButton 
+                    variant="ghost" 
+                    aria-label="Board settings" 
+                    className="shrink-0 h-[32px] w-[32px]"
+                    onClick={() => setIsEditModalOpen(true)}
+                    title="Settings"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </IconButton>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1121,6 +1182,7 @@ const Board = () => {
                   count={col.tasks.length}
                   statusColor={col.statusColor}
                   tasks={col.tasks}
+                  isMember={isMember}
                   onTaskClick={async (task) => {
                     setSelectedTask(task);
                     setTaskComments([]);
@@ -1294,10 +1356,36 @@ const Board = () => {
                     <span className={`text-small flex-1 ${subtask.isCompleted ? 'line-through text-tertiary' : 'text-primary'}`}>
                       {subtask.title}
                     </span>
-                    <button 
-                      className="opacity-0 group-hover:opacity-100 text-tertiary hover:text-danger-500 transition-opacity p-1"
-                      onClick={async () => {
-                        const newSubtasks = selectedTask.subtasks.filter((_, i) => i !== idx);
+                    {!isMember && (
+                      <button 
+                        className="opacity-0 group-hover:opacity-100 text-tertiary hover:text-danger-500 transition-opacity p-1"
+                        onClick={async () => {
+                          const newSubtasks = selectedTask.subtasks.filter((_, i) => i !== idx);
+                          setSelectedTask(prev => ({ ...prev, subtasks: newSubtasks }));
+                          try {
+                            await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id}`, { subtasks: newSubtasks });
+                            fetchTasks(false);
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {!isMember && (
+                <div className="flex gap-2 items-center mt-2">
+                  <Input 
+                    placeholder="Add a subtask..." 
+                    className="h-[32px] text-small"
+                    id="new-subtask-input"
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && e.target.value.trim()) {
+                        const newSubtasks = [...(selectedTask.subtasks || []), { title: e.target.value.trim(), isCompleted: false }];
+                        e.target.value = '';
                         setSelectedTask(prev => ({ ...prev, subtasks: newSubtasks }));
                         try {
                           await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id}`, { subtasks: newSubtasks });
@@ -1305,33 +1393,11 @@ const Board = () => {
                         } catch (err) {
                           console.error(err);
                         }
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2 items-center mt-2">
-                <Input 
-                  placeholder="Add a subtask..." 
-                  className="h-[32px] text-small"
-                  id="new-subtask-input"
-                  onKeyDown={async (e) => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      const newSubtasks = [...(selectedTask.subtasks || []), { title: e.target.value.trim(), isCompleted: false }];
-                      e.target.value = '';
-                      setSelectedTask(prev => ({ ...prev, subtasks: newSubtasks }));
-                      try {
-                        await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id}`, { subtasks: newSubtasks });
-                        fetchTasks(false);
-                      } catch (err) {
-                        console.error(err);
                       }
-                    }
-                  }}
-                />
-              </div>
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Assignee */}
@@ -1399,22 +1465,24 @@ const Board = () => {
                           <IconButton variant="ghost" className="w-7 h-7 text-secondary" onClick={() => handleDownloadAttachment(att)}>
                             <Download className="w-4 h-4" />
                           </IconButton>
-                          <IconButton 
-                            variant="ghost" 
-                            className="w-7 h-7 text-danger-500" 
-                            onClick={() => setConfirmDialog({
-                              isOpen: true,
-                              title: 'Delete Attachment',
-                              message: 'Are you sure you want to delete this attachment?',
-                              confirmText: 'Delete',
-                              onConfirm: () => {
-                                handleDeleteAttachment(att._id);
-                                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                              }
-                            })}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </IconButton>
+                          {(!isMember || att.uploadedBy?._id === user?._id || att.uploadedBy === user?._id) && (
+                            <IconButton 
+                              variant="ghost" 
+                              className="w-7 h-7 text-danger-500" 
+                              onClick={() => setConfirmDialog({
+                                isOpen: true,
+                                title: 'Delete Attachment',
+                                message: 'Are you sure you want to delete this attachment?',
+                                confirmText: 'Delete',
+                                onConfirm: () => {
+                                  handleDeleteAttachment(att._id);
+                                  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                                }
+                              })}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </IconButton>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1460,22 +1528,24 @@ const Board = () => {
                             <span className="text-small font-medium text-primary">{comment.author?.name || 'Unknown'}</span>
                             <span className="text-[11px] text-tertiary">{new Date(comment.createdAt).toLocaleString()}</span>
                           </div>
-                          <button 
-                            onClick={() => setConfirmDialog({
-                              isOpen: true,
-                              title: 'Delete Comment',
-                              message: 'Are you sure you want to delete this comment?',
-                              confirmText: 'Delete',
-                              onConfirm: () => {
-                                handleDeleteComment(comment._id);
-                                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                              }
-                            })}
-                            className="text-tertiary hover:text-danger-500 transition-colors"
-                            aria-label="Delete comment"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {(!isMember || comment.author?._id === user?._id || comment.author === user?._id) && (
+                            <button 
+                              onClick={() => setConfirmDialog({
+                                isOpen: true,
+                                title: 'Delete Comment',
+                                message: 'Are you sure you want to delete this comment?',
+                                confirmText: 'Delete',
+                                onConfirm: () => {
+                                  handleDeleteComment(comment._id);
+                                  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                                }
+                              })}
+                              className="text-tertiary hover:text-danger-500 transition-colors"
+                              aria-label="Delete comment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                         <p className="text-small text-secondary whitespace-pre-wrap">{comment.content}</p>
                       </div>
@@ -1487,38 +1557,40 @@ const Board = () => {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-border flex justify-between">
-              <Button 
-                variant="ghost" 
-                className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" 
-                onClick={() => setConfirmDialog({
-                  isOpen: true,
-                  title: 'Delete Task',
-                  message: 'Are you sure you want to delete this task?',
-                  confirmText: 'Delete Task',
-                  onConfirm: () => {
-                    handleDeleteTask();
-                    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                  }
-                })}
-              >
-                Delete Task
-              </Button>
-              <Button variant="secondary" onClick={() => {
-                setEditTaskForm({
-                  title: selectedTask.title,
-                  description: selectedTask.description || '',
-                  priority: selectedTask.priority,
-                  assignee: selectedTask.assigneeId || '',
-                  startDate: selectedTask.startDate || '',
-                  dueDate: selectedTask.dueDate || '',
-                  column: selectedTask.columnId
-                });
-                setIsEditTaskModalOpen(true);
-              }}>
-                Edit Task
-              </Button>
-            </div>
+            {!isMember && (
+              <div className="pt-6 border-t border-border flex justify-between">
+                <Button 
+                  variant="ghost" 
+                  className="text-danger-500 hover:text-danger-600 hover:bg-danger-50" 
+                  onClick={() => setConfirmDialog({
+                    isOpen: true,
+                    title: 'Delete Task',
+                    message: 'Are you sure you want to delete this task?',
+                    confirmText: 'Delete Task',
+                    onConfirm: () => {
+                      handleDeleteTask();
+                      setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                    }
+                  })}
+                >
+                  Delete Task
+                </Button>
+                <Button variant="secondary" onClick={() => {
+                  setEditTaskForm({
+                    title: selectedTask.title,
+                    description: selectedTask.description || '',
+                    priority: selectedTask.priority,
+                    assignee: selectedTask.assigneeId || '',
+                    startDate: selectedTask.startDate || '',
+                    dueDate: selectedTask.dueDate || '',
+                    column: selectedTask.columnId
+                  });
+                  setIsEditTaskModalOpen(true);
+                }}>
+                  Edit Task
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </Drawer>
@@ -1768,31 +1840,39 @@ const Board = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="w-[110px]">
-                      <Select 
-                        value={member.role}
-                        onChange={(newRole) => handleUpdateMemberRole(member.id, newRole)}
-                        options={[
-                          { label: 'Manager', value: 'manager' },
-                          { label: 'Member', value: 'member' }
-                        ]}
-                      />
-                    </div>
-                    <button 
-                      onClick={() => setConfirmDialog({
-                        isOpen: true,
-                        title: 'Remove Member',
-                        message: 'Are you sure you want to remove this member from the board?',
-                        confirmText: 'Remove',
-                        onConfirm: () => {
-                          handleRemoveMember(member.id);
-                          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                        }
-                      })}
-                      className="text-danger-500 hover:text-danger-600 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded hover:bg-danger-50 transition-colors shrink-0"
-                    >
-                      Remove
-                    </button>
+                    {!isMember ? (
+                      <>
+                        <div className="w-[110px]">
+                          <Select 
+                            value={member.role}
+                            onChange={(newRole) => handleUpdateMemberRole(member.id, newRole)}
+                            options={[
+                              { label: 'Manager', value: 'manager' },
+                              { label: 'Member', value: 'member' }
+                            ]}
+                          />
+                        </div>
+                        <button 
+                          onClick={() => setConfirmDialog({
+                            isOpen: true,
+                            title: 'Remove Member',
+                            message: 'Are you sure you want to remove this member from the board?',
+                            confirmText: 'Remove',
+                            onConfirm: () => {
+                              handleRemoveMember(member.id);
+                              setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                            }
+                          })}
+                          className="text-danger-500 hover:text-danger-600 text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded hover:bg-danger-50 transition-colors shrink-0"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    ) : (
+                      <Badge variant={member.role === 'manager' ? 'high' : 'neutral'} className="capitalize">
+                        {member.role}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
