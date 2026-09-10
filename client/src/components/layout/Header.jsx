@@ -62,7 +62,6 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
   useEffect(() => {
     fetchNotifications();
 
-    // Listen to real-time socket notifications
     const handleNotification = (notif) => {
       setNotifications(prev => [notif, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -186,7 +185,6 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
 
     setIsNotifOpen(false);
 
-    // Deep navigation to exact board, task, and target section!
     const boardId = notif.board?._id || notif.board;
     const taskId = notif.task?._id || notif.task;
     const targetSection = notif.targetSection || 'comments';
@@ -211,7 +209,7 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-[64px] bg-canvas flex items-center justify-between px-4 lg:px-8 border-b border-slate-200/60 dark:border-slate-800/60">
+    <header className="sticky top-0 z-30 h-[64px] bg-canvas flex items-center justify-between px-4 lg:px-8 border-b border-slate-200/60">
       {/* Left Area */}
       <div className="flex items-center gap-4">
         <div className="lg:hidden">
@@ -351,7 +349,7 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center border-2 border-white dark:border-slate-900 animate-pulse">
+              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center border-2 border-white animate-pulse">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -359,12 +357,12 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
 
           {/* Live Notification Dropdown Panel */}
           {isNotifOpen && (
-            <div className="absolute top-full right-0 mt-2 w-[340px] sm:w-[400px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-2xl z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+            <div className="absolute top-full right-0 mt-2 w-[340px] sm:w-[400px] bg-white border border-slate-200 shadow-xl rounded-2xl z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Notifications</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Notifications</h3>
                   {unreadCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
                       {unreadCount} new
                     </span>
                   )}
@@ -372,45 +370,45 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
                 {unreadCount > 0 && (
                   <button 
                     onClick={markAllAsRead}
-                    className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="text-xs font-medium text-indigo-600 hover:underline"
                   >
                     Mark all read
                   </button>
                 )}
               </div>
               
-              <div className="flex flex-col max-h-[360px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+              <div className="flex flex-col max-h-[360px] overflow-y-auto divide-y divide-slate-100">
                 {notifications.length > 0 ? (
                   notifications.map((n) => (
                     <div 
                       key={n._id || n.id}
                       className={cn(
-                        "flex gap-3 p-3.5 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-800/60 group",
-                        !n.isRead ? "bg-indigo-50/40 dark:bg-indigo-950/20" : ""
+                        "flex gap-3 p-3.5 cursor-pointer transition-all hover:bg-slate-50 group",
+                        !n.isRead ? "bg-indigo-50/40" : ""
                       )}
                       onClick={() => handleNotificationClick(n)}
                     >
                       <div className="shrink-0 relative">
                         <Avatar name={n.sender?.name || 'System'} size="sm" />
-                        <div className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-0.5 shadow-xs border border-slate-200 dark:border-slate-700">
+                        <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-xs border border-slate-200">
                           <NotificationIcon type={n.type} />
                         </div>
                       </div>
 
                       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
+                          <p className="text-xs font-semibold text-slate-900 truncate">
                             {n.title || 'Activity Update'}
                           </p>
                           <span className="text-[10px] text-slate-400 shrink-0">
                             {n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                           {n.message || n.text}
                         </p>
                         {n.targetSection && (
-                          <div className="flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 mt-1 group-hover:translate-x-0.5 transition-transform">
+                          <div className="flex items-center gap-1 text-[10px] font-semibold text-indigo-600 mt-1 group-hover:translate-x-0.5 transition-transform">
                             <span>Open {n.targetSection}</span>
                             <ChevronRight className="w-3 h-3" />
                           </div>
@@ -431,10 +429,10 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
                 )}
               </div>
 
-              <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-2 text-center">
+              <div className="border-t border-slate-100 bg-slate-50/50 p-2 text-center">
                 <Link 
                   to="/app/notifications" 
-                  className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline w-full block py-1"
+                  className="text-xs font-semibold text-indigo-600 hover:underline w-full block py-1"
                   onClick={() => setIsNotifOpen(false)}
                 >
                   View all notifications
@@ -454,15 +452,15 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
           </button>
 
           {isProfileOpen && (
-            <div className="absolute top-full right-0 mt-2 w-[200px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{user?.name || "User"}</p>
+            <div className="absolute top-full right-0 mt-2 w-[200px] bg-white border border-slate-200 shadow-xl rounded-xl z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="p-3 border-b border-slate-100 bg-slate-50/50">
+                <p className="text-xs font-bold text-slate-900 truncate">{user?.name || "User"}</p>
                 <p className="text-[11px] text-slate-500 truncate">{user?.email || ""}</p>
               </div>
               <div className="p-1">
                 <button 
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors text-left focus:outline-none font-medium"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left focus:outline-none font-medium"
                 >
                   <LogOut className="w-4 h-4" />
                   Log out
@@ -477,4 +475,3 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
 };
 
 export default Header;
-

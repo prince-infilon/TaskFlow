@@ -19,7 +19,7 @@ const getActionDetails = (act) => {
         text: 'created board', 
         target: meta.boardName || act.board?.name || 'a board', 
         icon: FolderPlus, 
-        color: 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:text-indigo-400 dark:bg-indigo-950/50 dark:border-indigo-800' 
+        color: 'text-indigo-600 bg-indigo-50 border-indigo-200' 
       };
     case 'member_added': 
       return { 
@@ -27,7 +27,7 @@ const getActionDetails = (act) => {
         target: meta.addedEmail || 'a member', 
         detail: meta.role ? `as ${meta.role}` : '', 
         icon: UserPlus, 
-        color: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950/50 dark:border-emerald-800' 
+        color: 'text-emerald-600 bg-emerald-50 border-emerald-200' 
       };
     case 'member_role_changed': 
       return { 
@@ -35,21 +35,21 @@ const getActionDetails = (act) => {
         target: meta.addedEmail || 'member', 
         detail: meta.newRole ? `to ${meta.newRole}` : '', 
         icon: UserPlus, 
-        color: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950/50 dark:border-blue-800' 
+        color: 'text-blue-600 bg-blue-50 border-blue-200' 
       };
     case 'member_removed': 
       return { 
         text: 'removed a member from workspace', 
         target: '', 
         icon: UserPlus, 
-        color: 'text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-950/50 dark:border-rose-800' 
+        color: 'text-rose-600 bg-rose-50 border-rose-200' 
       };
     case 'task_created': 
       return { 
         text: 'created new task', 
         target: meta.taskTitle || 'a task', 
         icon: Layers, 
-        color: 'text-violet-600 bg-violet-50 border-violet-200 dark:text-violet-400 dark:bg-violet-950/50 dark:border-violet-800' 
+        color: 'text-violet-600 bg-violet-50 border-violet-200' 
       };
     case 'task_moved': 
       return { 
@@ -57,28 +57,28 @@ const getActionDetails = (act) => {
         target: meta.taskTitle || 'a task', 
         detail: meta.toColumnName ? `to ${meta.toColumnName}` : '', 
         icon: ArrowRight, 
-        color: 'text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950/50 dark:border-amber-800' 
+        color: 'text-amber-600 bg-amber-50 border-amber-200' 
       };
     case 'task_assigned': 
       return { 
         text: 'assigned task', 
         target: meta.taskTitle || 'a task', 
         icon: Layers, 
-        color: 'text-sky-600 bg-sky-50 border-sky-200 dark:text-sky-400 dark:bg-sky-950/50 dark:border-sky-800' 
+        color: 'text-sky-600 bg-sky-50 border-sky-200' 
       };
     case 'task_updated': 
       return { 
         text: 'updated task details for', 
         target: meta.taskTitle || 'a task', 
         icon: Layers, 
-        color: 'text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800 dark:border-slate-700' 
+        color: 'text-slate-600 bg-slate-50 border-slate-200' 
       };
     case 'task_deleted': 
       return { 
         text: 'deleted task', 
         target: meta.taskTitle || 'a task', 
         icon: Layers, 
-        color: 'text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-950/50 dark:border-rose-800' 
+        color: 'text-rose-600 bg-rose-50 border-rose-200' 
       };
     case 'comment_created': 
       return { 
@@ -86,21 +86,21 @@ const getActionDetails = (act) => {
         target: meta.taskTitle || 'a task', 
         detail: meta.text ? `"${meta.text.substring(0, 40)}${meta.text.length > 40 ? '...' : ''}"` : '', 
         icon: MessageSquare, 
-        color: 'text-purple-600 bg-purple-50 border-purple-200 dark:text-purple-400 dark:bg-purple-950/50 dark:border-purple-800' 
+        color: 'text-purple-600 bg-purple-50 border-purple-200' 
       };
     case 'attachment_uploaded': 
       return { 
         text: 'uploaded attachment', 
         target: meta.originalFilename || 'a file', 
         icon: Paperclip, 
-        color: 'text-teal-600 bg-teal-50 border-teal-200 dark:text-teal-400 dark:bg-teal-950/50 dark:border-teal-800' 
+        color: 'text-teal-600 bg-teal-50 border-teal-200' 
       };
     default: 
       return { 
         text: act.action ? act.action.replace('_', ' ') : 'performed action', 
         target: '', 
         icon: Sparkles, 
-        color: 'text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800 dark:border-slate-700' 
+        color: 'text-slate-600 bg-slate-50 border-slate-200' 
       };
   }
 };
@@ -241,16 +241,16 @@ const Activity = () => {
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto w-full animate-in fade-in duration-300 pb-16">
+    <div className="max-w-5xl mx-auto w-full animate-in fade-in duration-300 pb-16 text-slate-900">
       
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Clock className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <Clock className="w-6 h-6 text-indigo-600" />
             Activity Log
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Real-time audit trail of board updates, task movements, comments, and workspace activity.
           </p>
         </div>
@@ -269,29 +269,29 @@ const Activity = () => {
 
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Today</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.totalToday}</span>
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Today</span>
+          <span className="text-2xl font-bold text-slate-900 mt-1">{stats.totalToday}</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Task Movements</span>
-          <span className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{stats.tasksMovedToday}</span>
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Task Movements</span>
+          <span className="text-2xl font-bold text-amber-600 mt-1">{stats.tasksMovedToday}</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">New Comments</span>
-          <span className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{stats.commentsToday}</span>
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">New Comments</span>
+          <span className="text-2xl font-bold text-purple-600 mt-1">{stats.commentsToday}</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Recorded Events</span>
-          <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{stats.totalAllTime}</span>
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Recorded Events</span>
+          <span className="text-2xl font-bold text-indigo-600 mt-1">{stats.totalAllTime}</span>
         </div>
       </div>
 
       {/* Filters & Controls */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 mb-8 shadow-sm space-y-4">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-8 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {/* Board Selector */}
           <div className="w-full sm:w-64">
@@ -318,7 +318,7 @@ const Activity = () => {
         </div>
 
         {/* Entity Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-slate-100">
           {[
             { id: 'all', label: 'All Activity' },
             { id: 'task', label: 'Tasks' },
@@ -332,8 +332,8 @@ const Activity = () => {
               onClick={() => setSelectedEntity(tab.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                 selectedEntity === tab.id
-                  ? 'bg-indigo-600 text-white shadow-sm font-semibold'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               {tab.label}
@@ -344,9 +344,9 @@ const Activity = () => {
 
       {/* Activity Timeline Stream */}
       {error ? (
-        <div className="p-8 text-center bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-xl">
+        <div className="p-8 text-center bg-rose-50 border border-rose-200 rounded-xl">
           <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-          <p className="text-sm font-medium text-rose-700 dark:text-rose-300">{error}</p>
+          <p className="text-sm font-medium text-rose-700">{error}</p>
         </div>
       ) : isLoading ? (
         <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
@@ -354,10 +354,10 @@ const Activity = () => {
           <p className="text-sm">Loading activity feed...</p>
         </div>
       ) : activities.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-sm">
-          <Clock className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">No activity recorded</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+        <div className="p-12 text-center bg-white border border-slate-200 rounded-xl shadow-xs">
+          <Clock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-slate-800">No activity recorded</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
             Activity events will appear here automatically as team members interact with tasks and boards.
           </p>
         </div>
@@ -367,26 +367,26 @@ const Activity = () => {
             <div key={group.label}>
               {/* Date Section Header */}
               <div className="flex items-center gap-3 mb-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-3 py-1 rounded-full">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
                   {group.label}
                 </h3>
-                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800"></div>
+                <div className="flex-1 h-px bg-slate-200"></div>
               </div>
 
               {/* Feed Group */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+              <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden divide-y divide-slate-100">
                 {group.events.map(ev => {
                   const Icon = ev.Icon;
                   return (
                     <div 
                       key={ev.id} 
                       onClick={() => handleActivityClick(ev.raw)}
-                      className="p-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex items-start gap-4 group"
+                      className="p-4 hover:bg-slate-50 transition-colors cursor-pointer flex items-start gap-4 group"
                     >
                       {/* Avatar */}
                       <div className="relative shrink-0">
                         <Avatar name={ev.userName} src={ev.user?.avatarUrl} size="md" />
-                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border border-white dark:border-slate-900 flex items-center justify-center ${ev.colorClass}`}>
+                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border border-white flex items-center justify-center ${ev.colorClass}`}>
                           <Icon className="w-3 h-3" />
                         </div>
                       </div>
@@ -394,25 +394,25 @@ const Activity = () => {
                       {/* Content */}
                       <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4">
                         <div className="min-w-0 space-y-0.5">
-                          <p className="text-sm text-slate-800 dark:text-slate-200 leading-snug">
-                            <span className="font-semibold text-slate-900 dark:text-slate-100 mr-1.5">{ev.userName}</span>
-                            <span className="text-slate-600 dark:text-slate-400 mr-1.5">{ev.text}</span>
+                          <p className="text-sm text-slate-800 leading-snug">
+                            <span className="font-semibold text-slate-900 mr-1.5">{ev.userName}</span>
+                            <span className="text-slate-600 mr-1.5">{ev.text}</span>
                             {ev.target && (
-                              <span className="font-semibold text-indigo-600 dark:text-indigo-400 group-hover:underline mr-1.5">
+                              <span className="font-semibold text-indigo-600 group-hover:underline mr-1.5">
                                 {ev.target}
                               </span>
                             )}
                             {ev.detail && (
-                              <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                              <span className="text-xs text-slate-500 font-mono">
                                 {ev.detail}
                               </span>
                             )}
                           </p>
 
                           {ev.boardName && (
-                            <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                            <p className="text-xs text-slate-400 flex items-center gap-1">
                               <span>in board</span>
-                              <span className="font-medium text-slate-600 dark:text-slate-300 group-hover:text-indigo-600 transition-colors">
+                              <span className="font-medium text-slate-600 group-hover:text-indigo-600 transition-colors">
                                 {ev.boardName}
                               </span>
                             </p>
@@ -420,7 +420,7 @@ const Activity = () => {
                         </div>
 
                         {/* Timestamp */}
-                        <div className="shrink-0 flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                        <div className="shrink-0 flex items-center gap-1.5 text-xs text-slate-400 group-hover:text-slate-600 transition-colors">
                           <Clock className="w-3.5 h-3.5" />
                           <span>{ev.time}</span>
                         </div>

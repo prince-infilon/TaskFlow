@@ -18,7 +18,7 @@ const PRIORITY_CONFIG = {
 const GanttView = ({ tasks = [], onTaskClick }) => {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 4); // Show a few days back
+    d.setDate(d.getDate() - 4);
     return d;
   });
 
@@ -26,7 +26,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
   const leftPaneRef = useRef(null);
   const rightPaneRef = useRef(null);
 
-  // Synchronize vertical scrolling between task list and timeline grid
   const handleScroll = (e) => {
     const target = e.target;
     if (target === leftPaneRef.current && rightPaneRef.current) {
@@ -48,7 +47,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
     setStartDate(d);
   };
 
-  // Generate date array
   const dates = useMemo(() => {
     const arr = [];
     for (let i = 0; i < daysToView; i++) {
@@ -59,7 +57,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
     return arr;
   }, [startDate, daysToView]);
 
-  // Group dates by Month for top header bar
   const monthGroups = useMemo(() => {
     const groups = [];
     let currentMonth = null;
@@ -85,7 +82,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
     return groups;
   }, [dates]);
 
-  // Process and sort tasks
   const processedTasks = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -93,7 +89,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
       let startStr = task.startDate;
       let endStr = task.dueDate;
 
-      // Fallbacks if dates are missing so every task is represented
       if (!startStr && !endStr) {
         startStr = task.createdAt ? new Date(task.createdAt).toISOString().split('T')[0] : todayStr;
         endStr = startStr;
@@ -108,7 +103,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
       tStart.setHours(0, 0, 0, 0);
       tEnd.setHours(0, 0, 0, 0);
 
-      // Ensure start is before end
       if (tEnd < tStart) {
         tEnd.setTime(tStart.getTime());
       }
@@ -129,19 +123,19 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
     return d;
   }, [startDate]);
 
-  const cellWidth = 48; // px per day
+  const cellWidth = 48;
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden text-slate-800 dark:text-slate-100">
+    <div className="flex flex-col h-full bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden text-slate-800">
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm shrink-0">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50/50 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100">
             <Layers className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Gantt Timeline</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <h2 className="text-base font-bold text-slate-900">Gantt Timeline</h2>
+            <p className="text-xs text-slate-500">
               Showing {processedTasks.length} tasks across {daysToView} days
             </p>
           </div>
@@ -149,16 +143,15 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
 
         {/* Timeline controls */}
         <div className="flex items-center gap-3">
-          {/* Zoom options */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
+          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
             {[14, 30, 60].map(days => (
               <button
                 key={days}
                 onClick={() => setDaysToView(days)}
                 className={`px-2.5 py-1 rounded-md transition-all font-medium ${
                   daysToView === days
-                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-white text-indigo-600 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {days}D
@@ -166,13 +159,12 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
             ))}
           </div>
 
-          <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800" />
+          <div className="h-4 w-[1px] bg-slate-200" />
 
-          {/* Date shift controls */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => shiftDays(-7)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors"
               title="Previous 7 Days"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -180,14 +172,14 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
 
             <button
               onClick={resetToToday}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
             >
               Today
             </button>
 
             <button
               onClick={() => shiftDays(7)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors"
               title="Next 7 Days"
             >
               <ChevronRight className="w-4 h-4" />
@@ -199,16 +191,15 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
       {/* Main Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Pane: Task List Sidebar */}
-        <div className="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 z-10 shadow-xs">
-          {/* Header height synced to timeline header (h-[65px]) */}
-          <div className="h-[65px] border-b border-slate-200 dark:border-slate-800 flex items-center px-4 bg-slate-50 dark:bg-slate-900/80 shrink-0 font-semibold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <div className="w-64 shrink-0 border-r border-slate-200 flex flex-col bg-white z-10 shadow-xs">
+          <div className="h-[65px] border-b border-slate-200 flex items-center px-4 bg-slate-50 shrink-0 font-semibold text-xs text-slate-500 uppercase tracking-wider">
             <span>Task Title ({processedTasks.length})</span>
           </div>
 
           <div 
             ref={leftPaneRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 no-scrollbar"
+            className="flex-1 overflow-y-auto divide-y divide-slate-100 no-scrollbar"
           >
             {processedTasks.map(task => {
               const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
@@ -218,11 +209,11 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
                 <div
                   key={task.id || task._id}
                   onClick={() => onTaskClick && onTaskClick(task)}
-                  className="h-12 px-4 flex items-center gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors group shrink-0"
+                  className="h-12 px-4 flex items-center gap-2.5 hover:bg-slate-50 cursor-pointer transition-colors group shrink-0"
                   title={task.title}
                 >
                   <span className={`w-2 h-2 rounded-full shrink-0 ${prioCfg.dot}`} />
-                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                  <span className="text-xs font-medium text-slate-800 truncate group-hover:text-indigo-600">
                     {task.title}
                   </span>
                 </div>
@@ -241,18 +232,18 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
         <div 
           ref={rightPaneRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-auto flex flex-col bg-slate-50/30 dark:bg-slate-950/20"
+          className="flex-1 overflow-auto flex flex-col bg-slate-50/30"
         >
           <div className="inline-flex flex-col min-w-full">
             {/* Header: Months & Days */}
-            <div className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200 shrink-0">
               {/* Row 1: Month Groups */}
-              <div className="flex border-b border-slate-200/80 dark:border-slate-800/80 h-7 text-xs font-bold text-slate-600 dark:text-slate-400">
+              <div className="flex border-b border-slate-200/80 h-7 text-xs font-bold text-slate-600">
                 {monthGroups.map((group, i) => (
                   <div
                     key={i}
                     style={{ width: `${group.count * cellWidth}px` }}
-                    className="shrink-0 px-3 flex items-center border-r border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/50 truncate text-[11px]"
+                    className="shrink-0 px-3 flex items-center border-r border-slate-200 bg-slate-100/50 truncate text-[11px]"
                   >
                     {group.month}
                   </div>
@@ -269,12 +260,12 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
                     <div
                       key={i}
                       style={{ width: `${cellWidth}px` }}
-                      className={`shrink-0 border-r border-slate-200 dark:border-slate-800/80 flex flex-col items-center justify-center ${
+                      className={`shrink-0 border-r border-slate-200 flex flex-col items-center justify-center ${
                         isToday
-                          ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold'
+                          ? 'bg-indigo-50 text-indigo-600 font-bold'
                           : isWeekend
-                          ? 'bg-slate-100/40 dark:bg-slate-800/30 text-slate-400'
-                          : 'text-slate-600 dark:text-slate-400'
+                          ? 'bg-slate-100/40 text-slate-400'
+                          : 'text-slate-600'
                       }`}
                     >
                       <span className="text-[10px] font-medium leading-none">
@@ -291,7 +282,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
 
             {/* Timeline Task Rows & Bars */}
             <div className="relative flex-1">
-              {/* Background Column Lines & Today Overlay */}
               <div className="absolute inset-0 flex pointer-events-none">
                 {dates.map((date, i) => {
                   const isToday = date.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
@@ -301,11 +291,11 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
                     <div
                       key={i}
                       style={{ width: `${cellWidth}px` }}
-                      className={`shrink-0 border-r border-slate-200/60 dark:border-slate-800/40 h-full ${
+                      className={`shrink-0 border-r border-slate-200/60 h-full ${
                         isToday
-                          ? 'bg-indigo-500/5 dark:bg-indigo-500/10 border-r-2 border-r-indigo-500/50'
+                          ? 'bg-indigo-500/5 border-r-2 border-r-indigo-500/50'
                           : isWeekend
-                          ? 'bg-slate-100/30 dark:bg-slate-800/20'
+                          ? 'bg-slate-100/30'
                           : ''
                       }`}
                     />
@@ -314,17 +304,15 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
               </div>
 
               {/* Task Bars */}
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/60 relative z-10">
+              <div className="divide-y divide-slate-100 relative z-10">
                 {processedTasks.map((task) => {
                   const startDiff = Math.floor((task.effectiveStart - gridStart) / (1000 * 60 * 60 * 24));
                   const duration = Math.max(1, Math.floor((task.effectiveEnd - task.effectiveStart) / (1000 * 60 * 60 * 24)) + 1);
 
-                  // Calculate pixel left & width
                   const leftPx = startDiff * cellWidth;
                   const widthPx = duration * cellWidth;
 
                   const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
-                  const prioCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.low;
 
                   const isVisible = startDiff + duration > 0 && startDiff < daysToView;
 
@@ -366,4 +354,3 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
 };
 
 export default GanttView;
-

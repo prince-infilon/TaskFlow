@@ -7,9 +7,7 @@ import {
   Zap, 
   ArrowRight, 
   CheckCircle2, 
-  UserX, 
   AlertCircle, 
-  ShieldAlert, 
   Sparkles,
   ToggleLeft,
   ToggleRight,
@@ -86,7 +84,6 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
         setTimeout(() => setSuccessMsg(''), 3000);
       }
 
-      // Reset
       setNewRule({
         trigger: 'task_moved',
         columnId: columns.length > 0 ? (columns[0].id || columns[0]._id) : '',
@@ -140,30 +137,30 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
       title="Board Automations"
       size="md"
     >
-      <div className="space-y-5 text-slate-800 dark:text-slate-100">
+      <div className="space-y-5 text-slate-800">
         {/* Messages */}
         {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-semibold">
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-semibold">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold">
+          <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl text-xs font-semibold">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
 
         {/* Rule Builder Form */}
-        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
               <Zap className="w-4 h-4 text-indigo-500" />
               Create Automation Rule
             </h3>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
               No-Code Triggers
             </span>
           </div>
@@ -238,7 +235,7 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
         {/* Active Rules List */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-slate-400" />
               Active Rules ({automations.length})
             </h3>
@@ -259,35 +256,35 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
                     key={auto._id} 
                     className={`p-3.5 rounded-xl border transition-all ${
                       isActive
-                        ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs'
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200/50 dark:border-slate-800/50 opacity-60'
+                        ? 'bg-white border-slate-200 shadow-xs'
+                        : 'bg-slate-50 border-slate-200/50 opacity-60'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <button
                           onClick={() => handleToggleActive(auto)}
-                          className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shrink-0"
+                          className="text-slate-400 hover:text-indigo-600 transition-colors shrink-0"
                           title={isActive ? 'Disable rule' : 'Enable rule'}
                         >
                           {isActive ? (
-                            <ToggleRight className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                            <ToggleRight className="w-6 h-6 text-indigo-600" />
                           ) : (
                             <ToggleLeft className="w-6 h-6 text-slate-400" />
                           )}
                         </button>
 
                         <div className="min-w-0 space-y-1">
-                          <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px]">
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-800">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">
                               {auto.trigger === 'task_moved' ? 'Task Moved' : 'Task Created'}
                             </span>
                             <ArrowRight className="w-3 h-3 text-slate-400" />
-                            <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px]">
+                            <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 text-[10px]">
                               "{targetColName}"
                             </span>
                             <ArrowRight className="w-3 h-3 text-slate-400" />
-                            <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-[10px] capitalize">
+                            <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] capitalize">
                               {auto.action === 'mark_complete'
                                 ? 'Mark Complete'
                                 : auto.action === 'unassign'
@@ -303,7 +300,7 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
 
                       <button
                         onClick={() => handleDelete(auto._id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
                         title="Delete Rule"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -314,8 +311,8 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
               })}
             </div>
           ) : (
-            <div className="text-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
-              <Sparkles className="w-6 h-6 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
+            <div className="text-center p-6 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 text-xs">
+              <Sparkles className="w-6 h-6 mx-auto mb-2 text-slate-300" />
               No automations configured for this board yet.
             </div>
           )}
@@ -326,4 +323,3 @@ const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
 };
 
 export default AutomationsModal;
-

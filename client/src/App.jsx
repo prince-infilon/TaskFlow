@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import AppShell from './components/layout/AppShell';
 import EmptyState from './components/ui/EmptyState';
 import { Sparkles } from 'lucide-react';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Lazy loaded pages

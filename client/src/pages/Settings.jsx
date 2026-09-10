@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import Select from '../components/ui/Select';
 import Avatar from '../components/ui/Avatar';
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
 import Toast, { ToastContainer } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
-import { User, Shield, Bell, Sliders, Check, RefreshCw, Upload, Lock } from 'lucide-react';
+import { User, Shield, Bell, Check, Lock } from 'lucide-react';
 
 const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -29,12 +28,6 @@ const Settings = () => {
   });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   
-  // Preferences state
-  const [preferences, setPreferences] = useState({
-    theme: user?.preferences?.theme || 'system'
-  });
-  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
-  
   // Notifications state
   const [notifications, setNotifications] = useState({
     emailSummary: user?.notifications?.emailSummary ?? true,
@@ -54,14 +47,13 @@ const Settings = () => {
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
+    // Ensure dark class is removed
+    document.documentElement.classList.remove('dark');
     if (user) {
       setProfile({
         name: user.name || '',
         email: user.email || '',
         avatarUrl: user.avatarUrl || ''
-      });
-      setPreferences({
-        theme: user.preferences?.theme || 'system'
       });
       setNotifications({
         emailSummary: user.notifications?.emailSummary ?? true,
@@ -106,34 +98,7 @@ const Settings = () => {
     }
   };
 
-  // 2. Save Preferences
-  const handleSavePreferences = async () => {
-    setIsSavingPreferences(true);
-    try {
-      const res = await apiClient.patch('/users/me', {
-        preferences
-      });
-      const updatedUser = res.user || res.data?.user;
-      if (updatedUser) {
-        updateUser(updatedUser);
-      }
-      
-      // Apply theme preference dynamically
-      if (preferences.theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else if (preferences.theme === 'light') {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      showToast('Preferences updated successfully!');
-    } catch (error) {
-      showToast(error.response?.data?.error?.message || 'Failed to update preferences', 'danger');
-    } finally {
-      setIsSavingPreferences(false);
-    }
-  };
-
-  // 3. Save Notifications
+  // 2. Save Notifications
   const handleSaveNotifications = async () => {
     setIsSavingNotifications(true);
     try {
@@ -152,7 +117,7 @@ const Settings = () => {
     }
   };
 
-  // 4. Update Password
+  // 3. Update Password
   const handleUpdatePassword = async (e) => {
     if (e) e.preventDefault();
     if (!security.newPassword) {
@@ -187,20 +152,20 @@ const Settings = () => {
     <div className="max-w-4xl mx-auto w-full animate-in fade-in duration-300 pb-12">
       {/* Page Header */}
       <div className="mb-8 space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Account Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Manage your personal information, display preferences, notifications, and security options.
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Account Settings</h1>
+        <p className="text-sm text-slate-500">
+          Manage your personal information, notifications, and security options.
         </p>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 mb-8 overflow-x-auto">
         <button
           onClick={() => setActiveTab('profile')}
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'profile'
-              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              ? 'border-indigo-600 text-indigo-600 font-semibold'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <User className="w-4 h-4" />
@@ -208,23 +173,11 @@ const Settings = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('preferences')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'preferences'
-              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          Preferences
-        </button>
-
-        <button
           onClick={() => setActiveTab('notifications')}
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'notifications'
-              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              ? 'border-indigo-600 text-indigo-600 font-semibold'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Bell className="w-4 h-4" />
@@ -235,8 +188,8 @@ const Settings = () => {
           onClick={() => setActiveTab('security')}
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'security'
-              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              ? 'border-indigo-600 text-indigo-600 font-semibold'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
           }`}
         >
           <Shield className="w-4 h-4" />
@@ -250,20 +203,20 @@ const Settings = () => {
           <section className="animate-in fade-in duration-200">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Profile Information</CardTitle>
+                <CardTitle className="text-lg font-semibold text-slate-900">Profile Information</CardTitle>
               </CardHeader>
               <form onSubmit={handleSaveProfile}>
                 <CardContent className="space-y-6">
                   {/* Avatar Picker */}
                   <div className="space-y-3">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Profile Picture</label>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Profile Picture</label>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                       <div className="relative group">
                         <Avatar 
                           name={profile.name} 
                           src={profile.avatarUrl}
                           size="lg" 
-                          className="w-20 h-20 text-2xl font-bold ring-4 ring-slate-100 dark:ring-slate-800 shadow-md" 
+                          className="w-20 h-20 text-2xl font-bold ring-4 ring-slate-100 shadow-md" 
                         />
                       </div>
                       
@@ -286,7 +239,7 @@ const Settings = () => {
                             <button
                               type="button"
                               onClick={() => setProfile({ ...profile, avatarUrl: '' })}
-                              className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline ml-2"
+                              className="text-xs text-slate-500 hover:text-slate-700 underline ml-2"
                             >
                               Reset to initials
                             </button>
@@ -302,9 +255,9 @@ const Settings = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Full Name</label>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Full Name</label>
                       <Input 
                         value={profile.name}
                         onChange={(e) => setProfile({ ...profile, name: e.target.value })}
@@ -313,7 +266,7 @@ const Settings = () => {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email Address</label>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Email Address</label>
                       <Input 
                         type="email"
                         value={profile.email}
@@ -324,7 +277,7 @@ const Settings = () => {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="justify-end bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                <CardFooter className="justify-end bg-slate-50/50 border-t border-slate-100">
                   <Button variant="primary" type="submit" isLoading={isSavingProfile}>
                     Save Changes
                   </Button>
@@ -334,46 +287,15 @@ const Settings = () => {
           </section>
         )}
 
-        {/* Preferences Tab */}
-        {activeTab === 'preferences' && (
-          <section className="animate-in fade-in duration-200">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Interface & Theme Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="max-w-md space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Appearance Mode</label>
-                  <Select 
-                    value={preferences.theme}
-                    onChange={(val) => setPreferences({ ...preferences, theme: val })}
-                    options={[
-                      { label: 'System Default', value: 'system' },
-                      { label: 'Light Theme', value: 'light' },
-                      { label: 'Dark Mode', value: 'dark' }
-                    ]}
-                  />
-                  <p className="text-xs text-slate-500">Choose how TaskFlow looks to you. Select a light or dark theme based on your preference.</p>
-                </div>
-              </CardContent>
-              <CardFooter className="justify-end bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
-                <Button variant="primary" onClick={handleSavePreferences} isLoading={isSavingPreferences}>
-                  Save Preferences
-                </Button>
-              </CardFooter>
-            </Card>
-          </section>
-        )}
-
         {/* Notifications Tab */}
         {activeTab === 'notifications' && (
           <section className="animate-in fade-in duration-200">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Notification Preferences</CardTitle>
+                <CardTitle className="text-lg font-semibold text-slate-900">Notification Preferences</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <label className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+                <label className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-colors">
                   <input 
                     type="checkbox" 
                     className="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
@@ -381,12 +303,12 @@ const Settings = () => {
                     onChange={(e) => setNotifications({ ...notifications, emailSummary: e.target.checked })}
                   />
                   <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Daily Email Summary</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Receive a daily digest summarizing workspace updates and assigned tasks.</div>
+                    <div className="text-sm font-semibold text-slate-900">Daily Email Summary</div>
+                    <div className="text-xs text-slate-500">Receive a daily digest summarizing workspace updates and assigned tasks.</div>
                   </div>
                 </label>
 
-                <label className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+                <label className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-colors">
                   <input 
                     type="checkbox" 
                     className="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
@@ -394,12 +316,12 @@ const Settings = () => {
                     onChange={(e) => setNotifications({ ...notifications, taskAssigned: e.target.checked })}
                   />
                   <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Task Assignments & Updates</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Get notified immediately when someone assigns a task to you or moves your task.</div>
+                    <div className="text-sm font-semibold text-slate-900">Task Assignments & Updates</div>
+                    <div className="text-xs text-slate-500">Get notified immediately when someone assigns a task to you or moves your task.</div>
                   </div>
                 </label>
 
-                <label className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+                <label className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-colors">
                   <input 
                     type="checkbox" 
                     className="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
@@ -407,12 +329,12 @@ const Settings = () => {
                     onChange={(e) => setNotifications({ ...notifications, comments: e.target.checked })}
                   />
                   <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Comments & Mentions</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Get real-time alerts whenever a teammate comments on your board tasks.</div>
+                    <div className="text-sm font-semibold text-slate-900">Comments & Mentions</div>
+                    <div className="text-xs text-slate-500">Get real-time alerts whenever a teammate comments on your board tasks.</div>
                   </div>
                 </label>
               </CardContent>
-              <CardFooter className="justify-end bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+              <CardFooter className="justify-end bg-slate-50/50 border-t border-slate-100">
                 <Button variant="primary" onClick={handleSaveNotifications} isLoading={isSavingNotifications}>
                   Save Notification Settings
                 </Button>
@@ -426,13 +348,13 @@ const Settings = () => {
           <section className="animate-in fade-in duration-200">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Password & Security</CardTitle>
+                <CardTitle className="text-lg font-semibold text-slate-900">Password & Security</CardTitle>
               </CardHeader>
               <form onSubmit={handleUpdatePassword}>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
                     <div className="space-y-1 sm:col-span-2 max-w-sm">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Current Password</label>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Current Password</label>
                       <Input 
                         type="password"
                         placeholder="Enter current password"
@@ -442,7 +364,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">New Password</label>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">New Password</label>
                       <Input 
                         type="password"
                         placeholder="Enter new password"
@@ -452,7 +374,7 @@ const Settings = () => {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Confirm New Password</label>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Confirm New Password</label>
                       <Input 
                         type="password"
                         placeholder="Confirm new password"
@@ -462,7 +384,7 @@ const Settings = () => {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="justify-between bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex-wrap gap-4">
+                <CardFooter className="justify-between bg-slate-50/50 border-t border-slate-100 flex-wrap gap-4">
                   <Button variant="outline" type="button" onClick={() => window.location.href = '/app/settings/security'}>
                     <Shield className="w-4 h-4 mr-2" />
                     Advanced Security (MFA & Sessions)

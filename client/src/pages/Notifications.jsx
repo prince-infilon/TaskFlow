@@ -90,19 +90,19 @@ const Notifications = () => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
-    <div className="max-w-[840px] mx-auto w-full animate-in fade-in duration-300 pb-12 text-slate-800 dark:text-slate-100">
+    <div className="max-w-[840px] mx-auto w-full animate-in fade-in duration-300 pb-12 text-slate-800">
       {/* Page Header */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-xs">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">Notifications</h1>
+            <h1 className="text-xl font-extrabold text-slate-900">Notifications</h1>
             {unreadCount > 0 && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
                 {unreadCount} unread
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-slate-500">
             Real-time updates & activity on tasks assigned to or involving you.
           </p>
         </div>
@@ -110,7 +110,7 @@ const Notifications = () => {
         {unreadCount > 0 && (
           <button
             onClick={markAllAsRead}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all border border-slate-200 dark:border-slate-700 shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold transition-all border border-slate-200 shrink-0"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Mark all as read</span>
@@ -119,7 +119,7 @@ const Notifications = () => {
       </div>
 
       {/* Notifications Feed */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800/60">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col divide-y divide-slate-100">
         {isLoading ? (
           <div className="p-12 text-center text-xs text-slate-400">
             Loading notifications...
@@ -129,21 +129,21 @@ const Notifications = () => {
             <div 
               key={n._id || n.id}
               className={cn(
-                "flex items-start gap-4 p-4.5 transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer group",
-                !n.isRead ? "bg-indigo-50/40 dark:bg-indigo-950/20" : ""
+                "flex items-start gap-4 p-4.5 transition-all hover:bg-slate-50 cursor-pointer group",
+                !n.isRead ? "bg-indigo-50/40" : ""
               )}
               onClick={() => handleNotificationClick(n)}
             >
               <div className="shrink-0 relative pt-0.5">
                 <Avatar name={n.sender?.name || 'System'} size="md" />
-                <div className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-1 border border-slate-200 dark:border-slate-700 shadow-xs">
+                <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 border border-slate-200 shadow-xs">
                   <NotificationIcon type={n.type} />
                 </div>
               </div>
 
               <div className="flex-1 min-w-0 flex flex-col gap-1">
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                  <h4 className="text-sm font-bold text-slate-900 truncate">
                     {n.title || 'Activity Update'}
                   </h4>
                   <span className="text-xs text-slate-400 shrink-0">
@@ -151,12 +151,12 @@ const Notifications = () => {
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   {n.message || n.text}
                 </p>
 
                 {n.targetSection && (
-                  <div className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-1 group-hover:translate-x-1 transition-transform">
+                  <div className="flex items-center gap-1 text-xs font-semibold text-indigo-600 mt-1 group-hover:translate-x-1 transition-transform">
                     <span>Direct Open Task {n.targetSection}</span>
                     <ChevronRight className="w-4 h-4" />
                   </div>
@@ -181,4 +181,3 @@ const Notifications = () => {
 };
 
 export default Notifications;
-
