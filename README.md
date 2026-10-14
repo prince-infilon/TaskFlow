@@ -121,29 +121,13 @@ npm run dev
 - **Rooms:** Users join specific `board:<id>` rooms.
 - **Emits:** `task_created`, `task_moved`, `task_updated`, `member_added`, `comment_created`, `presence_update`, etc.
 
-## Security & Testing
+## Security
 
 The platform has been hardened against common web vulnerabilities (Phase 15 Security Hardening).
 - **Rate Limiting:** Global (300/15m), Auth (20/15m), Uploads (30/15m).
 - **Injection Prevention:** Strict query parameter sanitization (e.g. escaping regex, blocking `$ne` objects).
 - **IDOR Prevention:** Board-boundary isolation strictly enforced at the middleware and controller level.
 - **Payload Limits:** 50KB request bodies to prevent memory exhaustion.
-
-### Running Tests
-The backend contains comprehensive automated integration tests using `supertest`.
-```bash
-cd server
-# Run all test suites
-node test-auth.js
-node test-rbac.js
-node test-boards.js
-node test-tasks.js
-node test-comments-attachments.js
-node test-activity.js
-node test-socket.js
-node test-user.js
-node test-security.js
-```
 
 ## Remaining Technical Debt
 
@@ -158,5 +142,4 @@ This project was built iteratively using an advanced agentic coding workflow. I 
 - **Architecture & Scoping:** The AI helped draft the PRD, Technical Specifications, and UI/UX Specifications to ensure a scalable MERN foundation.
 - **Iterative Implementation:** Following a structured 16-phase Development Plan, the AI generated models, controllers, and React components sequentially, verifying each step.
 - **Security Hardening:** The AI performed a dedicated security audit (Phase 15), identifying and patching MongoDB operator injections, missing rate limiters, missing security headers, and excessive payload sizes.
-- **Automated Testing:** The AI generated 9 distinct integration test suites (over 100+ test cases) to validate RBAC, authentication, and IDOR protection.
 - **Debugging:** When tests failed or the frontend desynced, the AI traced the issue through the stack, from reading server logs to patching specific Mongoose validation schemas or React state loops.

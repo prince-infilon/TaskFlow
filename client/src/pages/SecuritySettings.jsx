@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
+import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Toast, { ToastContainer } from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import apiClient from '../api/client';
@@ -83,7 +83,7 @@ const SecuritySettings = () => {
     try {
       await apiClient.post('/users/me/revoke-sessions');
       showToast('Logged out of all other active sessions successfully.');
-    } catch (error) {
+    } catch {
       showToast('Failed to revoke sessions.', 'danger');
     }
   };

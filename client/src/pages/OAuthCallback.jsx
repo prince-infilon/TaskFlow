@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import apiClient from '../api/client';
 
 const OAuthCallback = () => {
   const [searchParams] = useSearchParams();
@@ -19,7 +18,7 @@ const OAuthCallback = () => {
       try {
         await completeOAuth(token);
         navigate('/app', { replace: true });
-      } catch (err) {
+      } catch {
         navigate('/login?error=oauth_failed');
       }
     };

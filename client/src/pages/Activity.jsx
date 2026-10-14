@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Clock, Filter, Search, RefreshCw, CheckCircle2, MessageSquare, 
-  Paperclip, UserPlus, FolderPlus, Layers, ArrowRight, Layout, Sparkles, AlertCircle
+  Clock, Search, RefreshCw, MessageSquare, 
+  Paperclip, UserPlus, FolderPlus, Layers, ArrowRight, Sparkles, AlertCircle
 } from 'lucide-react';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';

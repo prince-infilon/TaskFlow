@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, Layers, Clock, AlertCircle, CheckCircle2, CircleDashed } from 'lucide-react';
-import IconButton from '../ui/IconButton';
+import { ChevronLeft, ChevronRight, Layers, Clock, CheckCircle2, CircleDashed } from 'lucide-react';
 
 const STATUS_CONFIG = {
   done: { label: 'Done', bg: 'bg-emerald-500', text: 'text-emerald-500', lightBg: 'bg-emerald-50', border: 'border-emerald-200', icon: CheckCircle2 },
@@ -202,7 +201,6 @@ const GanttView = ({ tasks = [], onTaskClick }) => {
             className="flex-1 overflow-y-auto divide-y divide-slate-100 no-scrollbar"
           >
             {processedTasks.map(task => {
-              const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.todo;
               const prioCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.low;
 
               return (

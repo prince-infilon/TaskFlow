@@ -32,7 +32,7 @@ const MyTasks = () => {
       
       setPage(pagination.page || 1);
       setHasMore((pagination.page || 1) < (pagination.totalPages || 1));
-    } catch (err) {
+    } catch {
       setError('Failed to load your tasks.');
     } finally {
       setIsLoading(false);

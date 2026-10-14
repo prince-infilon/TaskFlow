@@ -5,7 +5,6 @@ import { useAuth } from '../../context/AuthContext';
 import IconButton from '../ui/IconButton';
 import Avatar from '../ui/Avatar';
 import Input from '../ui/Input';
-import Badge from '../ui/Badge';
 import { cn } from '../../utils/cn';
 import apiClient from '../../api/client';
 import { socket } from '../../api/socket';

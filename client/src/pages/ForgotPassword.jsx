@@ -7,7 +7,7 @@ import Input from '../components/ui/Input';
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const isSuccess = false;
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {

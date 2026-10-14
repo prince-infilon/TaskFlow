@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, MessageSquare, Briefcase, AlertCircle, Users, Bell, Paperclip, ChevronRight, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Avatar from '../components/ui/Avatar';
-import Button from '../components/ui/Button';
 import { cn } from '../utils/cn';
 import apiClient from '../api/client';
 import { socket } from '../api/socket';

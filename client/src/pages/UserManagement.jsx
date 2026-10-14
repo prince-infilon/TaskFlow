@@ -5,7 +5,6 @@ import {
   UserPlus, 
   Shield, 
   Briefcase, 
-  User, 
   ChevronDown, 
   ChevronRight, 
   KeyRound, 
@@ -28,7 +27,7 @@ import Badge from '../components/ui/Badge';
 import Avatar from '../components/ui/Avatar';
 import Modal from '../components/ui/Modal';
 import ConfirmModal from '../components/ui/ConfirmModal';
-import Toast, { ToastContainer } from '../components/ui/Toast';
+import { ToastContainer } from '../components/ui/Toast';
 
 export default function UserManagement() {
   const { user } = useAuth();
@@ -59,7 +58,6 @@ export default function UserManagement() {
   // Modals state
   const [modalType, setModalType] = useState(null); // 'addAdmin', 'addManager', 'addMember', 'edit', 'reassign', 'resetPassword'
   const [selectedUser, setSelectedUser] = useState(null);
-  const [preselectedManagerId, setPreselectedManagerId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
 
@@ -210,7 +208,6 @@ export default function UserManagement() {
 
   const openAddMemberModal = (managerId = '') => {
     const defaultMgr = managerId || (activeManagers.length > 0 ? activeManagers[0]._id : '');
-    setPreselectedManagerId(defaultMgr);
     setFormData({ name: '', email: '', password: '', confirmPassword: '', managerId: defaultMgr });
     setModalError('');
     setModalType('addMember');
@@ -620,8 +617,7 @@ export default function UserManagement() {
                           </div>
                         ) : (
                           <div className="divide-y divide-border/60">
-                            {assignedMembers.map((member, index) => {
-                              const isLast = index === assignedMembers.length - 1;
+                            {assignedMembers.map((member) => {
                               return (
                                 <div 
                                   key={member._id} 

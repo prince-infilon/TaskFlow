@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router({ mergeParams: true });
 const { getColumns, createColumn, updateColumn, deleteColumn } = require('../controllers/columnController');
 const { createColumnValidation, updateColumnValidation } = require('../middleware/validation/columnValidation');
-const { authorizeBoard } = require('../middleware/boardMiddleware');
 
 // The route prefix will be /api/boards/:boardId/columns
 // and authorizeBoard will be applied by boardRoutes.js before hitting this router.

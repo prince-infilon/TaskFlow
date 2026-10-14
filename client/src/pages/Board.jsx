@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, Settings, Plus, Calendar as CalendarIcon, Paperclip, MessageSquare, Trash2, Download, LayoutDashboard, CalendarDays, BarChartHorizontal, Zap, PieChart } from 'lucide-react';
 import { 
@@ -28,7 +28,7 @@ import Avatar, { AvatarGroup } from '../components/ui/Avatar';
 import Badge from '../components/ui/Badge';
 import Drawer from '../components/ui/Drawer';
 import Modal from '../components/ui/Modal';
-import Toast, { ToastContainer } from '../components/ui/Toast';
+import { ToastContainer } from '../components/ui/Toast';
 import Select from '../components/ui/Select';
 import CalendarView from '../components/views/CalendarView';
 import GanttView from '../components/views/GanttView';
@@ -466,7 +466,6 @@ const Board = () => {
 
       socket.on('connect', joinBoardRoom);
 
-      const triggerTaskUpdate = () => setSocketSignal({ type: 'task', timestamp: Date.now() });
       const triggerBoardUpdate = () => setSocketSignal({ type: 'board', timestamp: Date.now() });
       const triggerBothUpdate = () => setSocketSignal({ type: 'both', timestamp: Date.now() });
 
@@ -938,7 +937,7 @@ const Board = () => {
         column: targetCol.id,
         position: targetTaskIndex >= 0 ? targetTaskIndex : 0
       });
-    } catch (err) {
+    } catch {
       console.error('Failed to move task:', err);
       fetchTasks(false);
     }
@@ -1127,7 +1126,7 @@ const Board = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (err) {
+    } catch {
       showToast('Failed to download attachment', 'danger');
     }
   };

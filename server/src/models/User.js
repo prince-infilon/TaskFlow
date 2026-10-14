@@ -82,7 +82,7 @@ userSchema.index({ managerId: 1 });
 
 // We want to avoid returning the passwordHash in JSON responses accidentally
 userSchema.set('toJSON', {
-  transform: function (doc, ret, options) {
+  transform: function (doc, ret, _options) {
     delete ret.passwordHash;
     delete ret.twoFactorSecret;
     delete ret.backupCodes;
@@ -91,4 +91,3 @@ userSchema.set('toJSON', {
 });
 
 module.exports = mongoose.model('User', userSchema);
-

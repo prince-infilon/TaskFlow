@@ -1,6 +1,6 @@
 const logger = require('../utils/logger');
 
-exports.errorHandler = (err, req, res, next) => {
+exports.errorHandler = (err, req, res, _next) => {
   logger.error(`${err.message} - ${req.method} ${req.originalUrl} - IP: ${req.ip}`, {
     stack: err.stack,
     url: req.originalUrl,

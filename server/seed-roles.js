@@ -7,7 +7,7 @@ const Organization = require('./src/models/Organization');
 
 try {
   dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (e) {}
+} catch {}
 
 const usersToSeed = [
   {

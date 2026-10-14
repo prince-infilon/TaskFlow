@@ -20,7 +20,7 @@ import Badge from '../components/ui/Badge';
 import Avatar from '../components/ui/Avatar';
 import Modal from '../components/ui/Modal';
 import ConfirmModal from '../components/ui/ConfirmModal';
-import Toast, { ToastContainer } from '../components/ui/Toast';
+import { ToastContainer } from '../components/ui/Toast';
 
 export default function MyTeam() {
   const { user } = useAuth();

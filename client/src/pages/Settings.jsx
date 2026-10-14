@@ -6,7 +6,7 @@ import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../compone
 import Toast, { ToastContainer } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
-import { User, Shield, Bell, Check, Lock } from 'lucide-react';
+import { User, Shield, Bell } from 'lucide-react';
 
 const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',

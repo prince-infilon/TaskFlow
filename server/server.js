@@ -18,7 +18,6 @@ const organizationRoutes = require('./src/routes/organizationRoutes');
 const billingRoutes = require('./src/routes/billingRoutes');
 const billingController = require('./src/controllers/billingController');
 const { errorHandler } = require('./src/middleware/errorHandler');
-const { authenticate } = require('./src/middleware/authMiddleware');
 const { initializeSocket } = require('./src/socket');
 
 dotenv.config();

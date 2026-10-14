@@ -33,7 +33,7 @@ apiClient.interceptors.request.use(
             config.headers['x-organization-id'] = parsed._id;
           }
         }
-      } catch (e) {}
+      } catch {}
     }
     return config;
   },

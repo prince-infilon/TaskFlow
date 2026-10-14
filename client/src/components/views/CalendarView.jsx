@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckCircle2, Circle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 
@@ -46,7 +46,7 @@ const CalendarView = ({ tasks = [], onTaskClick }) => {
             if (!map[key]) map[key] = [];
             map[key].push(task);
           }
-        } catch (e) {
+        } catch {
           // fallback string check
           const key = String(task.dueDate).split('T')[0];
           if (!map[key]) map[key] = [];

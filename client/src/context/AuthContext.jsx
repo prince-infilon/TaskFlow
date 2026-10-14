@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         } else {
           throw new Error('No token');
         }
-      } catch (error) {
+      } catch {
         // Fallback to refresh if validation fails or token missing
         try {
           const response = await apiClient.post('/auth/refresh');
@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }) => {
               apiClient.defaults.headers.common['x-organization-id'] = orgs[0]._id;
             }
           }
-        } catch (refreshErr) {
+        } catch {
           setUser(null);
           setToken(null);
           setOrganizations([]);

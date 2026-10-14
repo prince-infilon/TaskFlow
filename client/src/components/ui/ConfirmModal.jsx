@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from './Modal';
 import Button from './Button';
-import { AlertTriangle, Info, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 
 const ConfirmModal = ({
   isOpen,

@@ -1,8 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
-import EmptyState from './components/ui/EmptyState';
-import { Sparkles } from 'lucide-react';
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Lazy loaded pages
@@ -37,21 +35,6 @@ const ProtectedRoute = ({ children }) => {
   
   return children;
 };
-
-// A simple placeholder for the routes inside the shell
-function PlaceholderPage({ title, description }) {
-  return (
-    <div className="bg-surface border border-border rounded-lg min-h-[500px] flex items-center justify-center">
-      <EmptyState 
-        icon={Sparkles}
-        title={title}
-        description={description}
-        actionLabel="Back to Landing"
-        onAction={() => window.location.href = '/'}
-      />
-    </div>
-  );
-}
 
 function App() {
   return (

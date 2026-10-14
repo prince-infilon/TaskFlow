@@ -46,7 +46,7 @@ const initializeSocket = (server) => {
       
       socket.user = user;
       next();
-    } catch (err) {
+    } catch {
       next(new Error('Authentication error: Invalid token'));
     }
   });
@@ -156,7 +156,7 @@ const initializeSocket = (server) => {
           socket.emit('presence_update', currentPresence);
         }
 
-      } catch (err) {
+      } catch {
         socket.emit('error', { message: 'Internal server error during join' });
       }
     });
@@ -202,10 +202,9 @@ const sendUserNotification = (recipientId, eventName, payload) => {
 const broadcastUserEvent = (eventName, payload) => {
   try {
     getIo().emit(eventName, payload);
-  } catch (err) {
+  } catch {
     // Silent fail if socket not active
   }
 };
 
 module.exports = { initializeSocket, getIo, broadcastBoardEvent, sendUserNotification, broadcastUserEvent };
-

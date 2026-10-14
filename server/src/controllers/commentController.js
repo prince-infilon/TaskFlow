@@ -68,7 +68,7 @@ exports.createComment = async (req, res, next) => {
       const taskDoc = await Task.findById(taskId);
       const Board = require('../models/Board');
       const boardDoc = await Board.findById(boardId);
-      const { notifyUser, notifyMultipleUsers } = require('../services/notificationService');
+      const { notifyMultipleUsers } = require('../services/notificationService');
 
       const recipients = [];
       if (taskDoc && taskDoc.assignee && taskDoc.assignee.toString() !== req.user._id.toString()) {

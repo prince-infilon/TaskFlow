@@ -1,5 +1,4 @@
 const Activity = require('../models/Activity');
-const { broadcastBoardEvent } = require('../socket');
 
 exports.logActivity = async ({ boardId, userId, action, entityType, entityId, metadata = {} }) => {
   try {

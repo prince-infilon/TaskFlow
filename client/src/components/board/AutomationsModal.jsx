@@ -14,17 +14,13 @@ import {
   Layers
 } from 'lucide-react';
 import apiClient from '../../api/client';
-import { useAuth } from '../../context/AuthContext';
 
 const AutomationsModal = ({ isOpen, onClose, boardId, columns = [] }) => {
-  const { user } = useAuth();
   const [automations, setAutomations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-
-  const isManager = user?.globalRole === 'admin' || user?.globalRole === 'manager';
 
   const [newRule, setNewRule] = useState({
     trigger: 'task_moved',

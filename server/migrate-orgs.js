@@ -7,7 +7,7 @@ require('dotenv').config();
 
 try {
   dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (error) {}
+} catch {}
 
 async function migrate() {
   try {

@@ -1,5 +1,5 @@
 const Notification = require('../models/Notification');
-const { sendUserNotification, broadcastBoardEvent } = require('../socket');
+const { sendUserNotification } = require('../socket');
 
 /**
  * Dispatch a notification to a specific user and broadcast real-time socket event.

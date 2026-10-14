@@ -1,5 +1,4 @@
 const Automation = require('../models/Automation');
-const Board = require('../models/Board');
 
 exports.getAutomations = async (req, res, next) => {
   try {

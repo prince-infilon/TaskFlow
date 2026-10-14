@@ -10,7 +10,6 @@ import {
   PanelLeftClose, 
   PanelLeftOpen,
   X,
-  CreditCard,
   Users
 } from 'lucide-react';
 import IconButton from '../ui/IconButton';
@@ -107,7 +106,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
                   if (window.innerWidth < 1024) closeMobile();
                 }}
               >
-                {({ isActive }) => (
+                {() => (
                   <>
                     <Icon className={cn("w-5 h-5 shrink-0", isCollapsed && !isMobileOpen ? "" : "mr-3")} />
                     {(!isCollapsed || isMobileOpen) && (
