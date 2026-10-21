@@ -48,7 +48,8 @@ exports.uploadAttachment = async (req, res, next) => {
       metadata: { taskId, originalFilename: attachment.originalFilename }
     });
 
-    const populatedAttachment = await Attachment.findById(attachment._id).populate('uploadedBy', 'name email avatarUrl');
+    // const populatedAttachment = await Attachment.findById(attachment._id).populate('uploadedBy', 'name email avatarUrl');
+    const populatedAttachment = attachment;
     
     // Dispatch real-time notification for attachment upload
     try {
