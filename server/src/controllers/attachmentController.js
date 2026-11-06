@@ -19,7 +19,8 @@ exports.uploadAttachment = async (req, res, next) => {
       return res.status(400).json({ success: false, error: { message: 'No file uploaded' } });
     }
 
-    if (!(await getValidatedTask(taskId, boardId))) {
+    const taskDoc = await getValidatedTask(taskId, boardId);
+    if (!taskDoc) {
       // Clean up uploaded file if task invalid
       await fs.promises.unlink(req.file.path).catch(() => {});
       return res.status(404).json({ success: false, error: { message: 'Task not found' } });
@@ -28,7 +29,7 @@ exports.uploadAttachment = async (req, res, next) => {
     const attachment = new Attachment({
       task: taskId,
       board: boardId,
-      uploadedBy: req.user._id,
+      uploadedBy: req.user._id, 
       originalFilename: req.file.originalname,
       storedFilename: req.file.filename,
       path: req.file.path,
@@ -53,9 +54,7 @@ exports.uploadAttachment = async (req, res, next) => {
     
     // Dispatch real-time notification for attachment upload
     try {
-      const taskDoc = await Task.findById(taskId);
-      const Board = require('../models/Board');
-      const boardDoc = await Board.findById(boardId);
+      const boardDoc = req.board;
       const { notifyMultipleUsers } = require('../services/notificationService');
 
       const recipients = [];

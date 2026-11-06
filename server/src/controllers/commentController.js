@@ -36,7 +36,8 @@ exports.createComment = async (req, res, next) => {
       return res.status(400).json({ success: false, error: { message: 'Content is required' } });
     }
 
-    if (!(await getValidatedTask(taskId, boardId))) {
+    const taskDoc = await getValidatedTask(taskId, boardId);
+    if (!taskDoc) {
       return res.status(404).json({ success: false, error: { message: 'Task not found' } });
     }
 
@@ -61,13 +62,11 @@ exports.createComment = async (req, res, next) => {
       metadata: { taskId }
     });
 
-    const populatedComment = await Comment.findById(comment._id).populate('author', 'name email avatarUrl');
+    const populatedComment = comment;
     
     // Dispatch real-time notification to relevant task assignee / board owner
     try {
-      const taskDoc = await Task.findById(taskId);
-      const Board = require('../models/Board');
-      const boardDoc = await Board.findById(boardId);
+      const boardDoc = req.board;
       const { notifyMultipleUsers } = require('../services/notificationService');
 
       const recipients = [];

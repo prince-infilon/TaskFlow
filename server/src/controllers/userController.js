@@ -102,11 +102,12 @@ exports.getMyTasks = async (req, res, next) => {
 exports.globalSearch = async (req, res, next) => {
   try {
     const { q } = req.query;
-    if (!q || q.length < 2) {
+    if (typeof q !== 'string' || q.trim().length < 2) {
       return res.status(200).json({ success: true, data: { boards: [], tasks: [] } });
     }
 
-    const regex = new RegExp(q, 'i');
+    const searchTerm = q.trim().slice(0, 200).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(searchTerm, 'i');
 
     let boardQuery = { name: regex };
     if (req.user.globalRole !== 'admin') {
@@ -115,28 +116,30 @@ exports.globalSearch = async (req, res, next) => {
         { owner: req.user._id }
       ];
     }
-    const boards = await Board.find(boardQuery, 'name description').limit(5);
 
-    // To find tasks, we need all boards the user can access
-    let accessibleBoardIds = boards.map(b => b._id);
-    if (req.user.globalRole !== 'admin') {
-      const allAccessibleBoards = await Board.find({
+    const accessibleBoardQuery = req.user.globalRole === 'admin'
+      ? null
+      : Board.find({
         $or: [
           { 'members.user': req.user._id },
           { owner: req.user._id }
         ]
-      }, '_id');
-      accessibleBoardIds = allAccessibleBoards.map(b => b._id);
-    } else {
-      const allAccessibleBoards = await Board.find({}, '_id');
-      accessibleBoardIds = allAccessibleBoards.map(b => b._id);
+      }).select('_id').lean();
+    const [boards, accessibleBoards] = await Promise.all([
+      Board.find(boardQuery, 'name description').limit(5).lean(),
+      accessibleBoardQuery || Promise.resolve(null)
+    ]);
+
+    const taskQuery = {
+      $or: [{ title: regex }, { description: regex }]
+    };
+    if (accessibleBoards) {
+      taskQuery.board = { $in: accessibleBoards.map(board => board._id) };
     }
 
-    const tasks = await Task.find({
-      board: { $in: accessibleBoardIds },
-      $or: [{ title: regex }, { description: regex }]
-    })
+    const tasks = await Task.find(taskQuery)
       .populate('board', 'name')
+      .lean()
       .limit(10);
 
     res.status(200).json({
@@ -698,5 +701,4 @@ exports.revokeMyOtherSessions = async (req, res, next) => {
     next(error);
   }
 };
-
 

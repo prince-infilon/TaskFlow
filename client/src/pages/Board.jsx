@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, Settings, Plus, Calendar as CalendarIcon, Paperclip, MessageSquare, Trash2, Download, LayoutDashboard, CalendarDays, BarChartHorizontal, Zap, PieChart } from 'lucide-react';
 import { 
@@ -201,6 +201,8 @@ const Board = () => {
   const [taskPage, setTaskPage] = useState(1);
   const [hasMoreTasks, setHasMoreTasks] = useState(false);
   const [isTasksLoading, setIsTasksLoading] = useState(false);
+  const taskFetchControllerRef = useRef(null);
+  const taskUpdatedHandlerRef = useRef(null);
   const [isBoardLoaded, setIsBoardLoaded] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [socketSignal, setSocketSignal] = useState({ type: null, timestamp: 0 });
@@ -282,7 +284,10 @@ const Board = () => {
       });
       localStorage.setItem('lastOpenedBoardId', boardId);
       
-      const membersRes = await apiClient.get(`/boards/${boardId}/members`);
+      const [membersRes, columnsRes] = await Promise.all([
+        apiClient.get(`/boards/${boardId}/members`),
+        apiClient.get(`/boards/${boardId}/columns`)
+      ]);
       const formattedMembers = membersRes.data.members.map(m => ({
         id: m.user._id,
         name: m.user.name,
@@ -292,7 +297,6 @@ const Board = () => {
       }));
       setBoardMembers(formattedMembers);
 
-      const columnsRes = await apiClient.get(`/boards/${boardId}/columns`);
       const cols = columnsRes.data.columns;
 
       const structuredColumns = cols.map(col => {
@@ -372,7 +376,8 @@ const Board = () => {
 
   const fetchTasks = async (isLoadMore = false) => {
     if (!isBoardLoaded) return;
-    
+    const controller = new AbortController();
+
     try {
       setIsTasksLoading(true);
       const queryParams = new URLSearchParams();
@@ -401,38 +406,64 @@ const Board = () => {
         queryParams.append('dueDate', 'overdue');
       }
 
-      const res = await apiClient.get(`/boards/${boardId}/tasks?${queryParams.toString()}`);
+      taskFetchControllerRef.current?.abort();
+      taskFetchControllerRef.current = controller;
+      const res = await apiClient.get(`/boards/${boardId}/tasks?${queryParams.toString()}`, {
+        signal: controller.signal
+      });
       const newTasks = res.data.tasks;
       const pagination = res.data.pagination;
 
       setColumns(prevCols => {
-        const allTasks = isLoadMore ? [
-          ...prevCols.flatMap(c => c.tasks),
-          ...newTasks.filter(nt => !prevCols.flatMap(c => c.tasks).find(et => et.id === nt._id))
-        ] : newTasks;
+        const allTasks = isLoadMore ? prevCols.flatMap(c => c.tasks) : [];
+        if (isLoadMore) {
+          const existingIds = new Set(allTasks.map(task => (task.id || task._id)?.toString()));
+          newTasks.forEach(task => {
+            const taskId = (task._id || task.id)?.toString();
+            if (!existingIds.has(taskId)) {
+              allTasks.push(task);
+              existingIds.add(taskId);
+            }
+          });
+        } else {
+          allTasks.push(...newTasks);
+        }
 
-        return prevCols.map(col => {
-          const colTasks = allTasks.filter(t => {
-            const taskColId = (t.column && typeof t.column === 'object') ? t.column._id?.toString() : (t.column || t.columnId)?.toString();
-            return taskColId === col.id?.toString();
-          }).map(t => ({
-            id: t._id || t.id,
-            title: t.title,
-            description: t.description,
-            priority: t.priority,
-            startDate: t.startDate || '',
-            dueDate: t.dueDate || '',
-            subtasks: t.subtasks || [],
-            attachments: t.attachments || 0,
-            comments: t.comments || 0,
-            assignee: t.assignee?.name || t.assignee || null,
-            assigneeId: t.assignee?._id || t.assigneeId || null,
-            columnId: (t.column && typeof t.column === 'object') ? t.column._id : (t.column || t.columnId),
-            isOverdue: false
-          }));
-          
-          return { ...col, tasks: colTasks };
+        const tasksByColumn = new Map(
+          prevCols.map(col => [col.id?.toString(), []])
+        );
+
+        allTasks.forEach(task => {
+          const taskColumnId = (task.column && typeof task.column === 'object')
+            ? task.column._id?.toString()
+            : (task.column || task.columnId)?.toString();
+          const columnTasks = tasksByColumn.get(taskColumnId);
+
+          if (columnTasks) {
+            columnTasks.push({
+              id: task._id || task.id,
+              title: task.title,
+              description: task.description,
+              priority: task.priority,
+              startDate: task.startDate || '',
+              dueDate: task.dueDate || '',
+              subtasks: task.subtasks || [],
+              attachments: task.attachments || 0,
+              comments: task.comments || 0,
+              assignee: task.assignee?.name || task.assignee || null,
+              assigneeId: task.assignee?._id || task.assigneeId || null,
+              columnId: (task.column && typeof task.column === 'object')
+                ? task.column._id
+                : (task.column || task.columnId),
+              isOverdue: false
+            });
+          }
         });
+
+        return prevCols.map(col => ({
+          ...col,
+          tasks: tasksByColumn.get(col.id?.toString()) || []
+        }));
       });
 
       if (isLoadMore) {
@@ -442,14 +473,20 @@ const Board = () => {
       }
       setHasMoreTasks(pagination.page < pagination.totalPages);
     } catch (err) {
-      console.error('Failed to load tasks', err);
+      if (!controller.signal.aborted) {
+        console.error('Failed to load tasks', err);
+      }
     } finally {
-      setIsTasksLoading(false);
+      if (!controller.signal.aborted && taskFetchControllerRef.current === controller) {
+        setIsTasksLoading(false);
+        taskFetchControllerRef.current = null;
+      }
     }
   };
 
   useEffect(() => {
     fetchBoardData();
+    return () => taskFetchControllerRef.current?.abort();
   }, [boardId]);
 
   useEffect(() => {
@@ -585,6 +622,7 @@ const Board = () => {
           });
         });
       };
+      taskUpdatedHandlerRef.current = handleTaskUpdated;
 
       const handleTaskMoved = (data) => {
         if (!data || !data.task) return;
@@ -819,6 +857,9 @@ const Board = () => {
         socket.off('attachment_uploaded', handleAttachmentUploaded);
         socket.off('attachment_deleted', handleAttachmentDeleted);
         socket.off('presence_update');
+        if (taskUpdatedHandlerRef.current === handleTaskUpdated) {
+          taskUpdatedHandlerRef.current = null;
+        }
         disconnectSocket();
       };
     }
@@ -1018,7 +1059,20 @@ const Board = () => {
     try {
       const res = await apiClient.patch(`/boards/${boardId}/tasks/${selectedTask.id || selectedTask._id}`, editTaskForm);
       if (res?.data?.task) {
-        handleTaskUpdated({ task: res.data.task });
+        const taskUpdatedHandler = taskUpdatedHandlerRef.current;
+        if (taskUpdatedHandler) {
+          taskUpdatedHandler({ task: res.data.task });
+        } else {
+          await fetchTasks(false);
+          setSelectedTask(prev => prev ? {
+            ...prev,
+            title: res.data.task.title,
+            description: res.data.task.description,
+            priority: res.data.task.priority,
+            startDate: res.data.task.startDate || '',
+            dueDate: res.data.task.dueDate || ''
+          } : prev);
+        }
       } else {
         await fetchTasks(false);
       }

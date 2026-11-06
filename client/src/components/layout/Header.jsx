@@ -74,11 +74,19 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
   }, [fetchNotifications]);
 
   useEffect(() => {
+    let isCurrent = true;
+    let controller;
+
     const delayDebounceFn = setTimeout(async () => {
       if (searchQuery.length >= 2) {
+        controller = new AbortController();
         setIsSearching(true);
         try {
-          const res = await apiClient.get(`/users/me/search?q=${encodeURIComponent(searchQuery)}`);
+          const res = await apiClient.get(`/users/me/search?q=${encodeURIComponent(searchQuery)}`, {
+            signal: controller.signal
+          });
+          if (!isCurrent) return;
+
           if (res && res.data) {
             setSearchResults(res.data);
           } else {
@@ -87,18 +95,25 @@ const Header = ({ openMobileSidebar, pageTitle }) => {
           setSelectedIndex(-1);
           setIsSearchDropdownOpen(true);
         } catch (err) {
-          console.error("Search failed", err);
-          setSearchResults({ boards: [], tasks: [] });
+          if (isCurrent) {
+            console.error("Search failed", err);
+            setSearchResults({ boards: [], tasks: [] });
+          }
         } finally {
-          setIsSearching(false);
+          if (isCurrent) setIsSearching(false);
         }
       } else {
         setSearchResults({ boards: [], tasks: [] });
         setIsSearchDropdownOpen(false);
+        setIsSearching(false);
       }
     }, 300);
 
-    return () => clearTimeout(delayDebounceFn);
+    return () => {
+      isCurrent = false;
+      clearTimeout(delayDebounceFn);
+      controller?.abort();
+    };
   }, [searchQuery]);
 
   useEffect(() => {

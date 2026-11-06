@@ -137,15 +137,11 @@ exports.deleteBoard = async (req, res, next) => {
       return res.status(403).json({ success: false, error: { message: 'Forbidden: Members cannot delete boards.' } });
     }
 
-    // Find all tasks belonging to this board
-    const tasks = await Task.find({ board: boardId }).select('_id');
-    const taskIds = tasks.map(t => t._id);
-
-    if (taskIds.length > 0) {
-      await Comment.deleteMany({ task: { $in: taskIds } });
-      await Attachment.deleteMany({ task: { $in: taskIds } });
-      await Task.deleteMany({ board: boardId });
-    }
+    await Promise.all([
+      Comment.deleteMany({ board: boardId }),
+      Attachment.deleteMany({ board: boardId }),
+      Task.deleteMany({ board: boardId })
+    ]);
 
     await Column.deleteMany({ board: boardId });
     await Activity.deleteMany({ boardId: boardId });
@@ -291,34 +287,58 @@ exports.getBoardAnalytics = async (req, res, next) => {
       .populate('assignee', 'name email avatar');
     const columns = await Column.find({ board: boardId }).sort('position');
 
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.column && (t.column.name.toLowerCase().includes('done') || t.column.name.toLowerCase().includes('complete'))).length;
-    const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-
     const tasksByColumn = {};
     columns.forEach(c => {
-      tasksByColumn[c.name] = tasks.filter(t => t.column && t.column._id.toString() === c._id.toString()).length;
+      tasksByColumn[c.name] = 0;
     });
 
     const tasksByPriority = {
-      low: tasks.filter(t => t.priority === 'low').length,
-      medium: tasks.filter(t => t.priority === 'medium').length,
-      high: tasks.filter(t => t.priority === 'high').length
+      low: 0,
+      medium: 0,
+      high: 0
     };
 
     const tasksByAssignee = {};
+    const columnNames = new Map(columns.map(c => [c._id.toString(), c.name]));
+    let completedTasks = 0;
+    let overdueTasks = 0;
+    const now = new Date();
+
     tasks.forEach(t => {
-      const name = t.assignee ? t.assignee.name : 'Unassigned';
-      tasksByAssignee[name] = (tasksByAssignee[name] || 0) + 1;
+      if (t.column) {
+        const columnName = t.column.name.toLowerCase();
+        const columnId = t.column._id.toString();
+        const boardColumnName = columnNames.get(columnId);
+
+        if (boardColumnName !== undefined) {
+          tasksByColumn[boardColumnName] += 1;
+        }
+
+        if (columnName.includes('done') || columnName.includes('complete')) {
+          completedTasks += 1;
+        }
+
+        if (t.dueDate && new Date(t.dueDate) < now && !columnName.includes('done')) {
+          overdueTasks += 1;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(tasksByPriority, t.priority)) {
+        tasksByPriority[t.priority] += 1;
+      }
+
+      const assigneeName = t.assignee ? t.assignee.name : 'Unassigned';
+      tasksByAssignee[assigneeName] = (tasksByAssignee[assigneeName] || 0) + 1;
     });
 
-    const overdueTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.column && !t.column.name.toLowerCase().includes('done')).length;
+    const totalTasks = tasks.length;
+    const completionRate = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
     // Activity in last 7 days
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
-    const recentActivity = await Activity.find({
+    const recentActivityCount = await Activity.countDocuments({
       board: boardId,
       createdAt: { $gte: sevenDaysAgo }
     });
@@ -333,7 +353,7 @@ exports.getBoardAnalytics = async (req, res, next) => {
         tasksByPriority,
         tasksByAssignee,
         overdueTasks,
-        recentActivityCount: recentActivity.length
+        recentActivityCount
       }
     });
   } catch (error) {

@@ -95,23 +95,23 @@ exports.getGlobalActivity = async (req, res, next) => {
       ];
     }
 
-    const activities = await Activity.find(query)
-      .populate('user', 'name email avatarUrl')
-      .populate('board', 'name')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Activity.countDocuments(query);
-
     // 3. Compute summary statistics
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
     const statsTodayQuery = { ...query, createdAt: { $gte: startOfToday } };
-    const totalToday = await Activity.countDocuments(statsTodayQuery);
-    const tasksMovedToday = await Activity.countDocuments({ ...statsTodayQuery, action: 'task_moved' });
-    const commentsToday = await Activity.countDocuments({ ...statsTodayQuery, action: 'comment_created' });
+    const [activities, total, totalToday, tasksMovedToday, commentsToday] = await Promise.all([
+      Activity.find(query)
+        .populate('user', 'name email avatarUrl')
+        .populate('board', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Activity.countDocuments(query),
+      Activity.countDocuments(statsTodayQuery),
+      Activity.countDocuments({ ...statsTodayQuery, action: 'task_moved' }),
+      Activity.countDocuments({ ...statsTodayQuery, action: 'comment_created' })
+    ]);
 
     res.status(200).json({
       success: true,
@@ -136,4 +136,3 @@ exports.getGlobalActivity = async (req, res, next) => {
     next(error);
   }
 };
-
